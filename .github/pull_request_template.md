@@ -1,17 +1,23 @@
 # Pull Request
 
 ## Description
-Brief description of what this PR does.
+Brief description of changes.
 
-Fixes #(issue)
+Fixes #(issue) <!-- Remove if not applicable -->
 
 ## Type of Change
 - [ ] Bug fix (non-breaking change which fixes an issue)
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Documentation update
-- [ ] Code quality improvement
-- [ ] Performance improvement
+
+<!-- 
+For minor fixes, you can delete sections below.
+For major contributions, please fill out relevant sections.
+-->
+
+<details>
+<summary>📋 Full Checklist (click to expand)</summary>
 
 ## Testing
 - [ ] I have added tests that prove my fix is effective or that my feature works
@@ -39,4 +45,6 @@ If applicable, add screenshots or code examples to help explain your changes.
 ```
 
 ## Additional Notes
-Any additional information that reviewers should know.
+Add any additional information that reviewers should know.
+
+</details>
