@@ -1,0 +1,70 @@
+{
+    "name": "wp-spaghetti/wp-logger",
+    "description": "A comprehensive WordPress logging service with Wonolog integration, secure file logging, and multi-server protection",
+    "license": "GPL-3.0-or-later",
+    "type": "library",
+    "keywords": [
+        "wordpress",
+        "logger",
+        "logging",
+        "wonolog",
+        "psr-3",
+        "security",
+        "fallback"
+    ],
+    "authors": [
+        {
+            "name": "Frugan",
+            "email": "dev@frugan.it",
+            "homepage": "https://github.com/wp-spaghetti"
+        }
+    ],
+    "homepage": "https://github.com/wp-spaghetti/wp-logger",
+    "require": {
+        "php": ">=8.0",
+        "psr/log": "^3.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.86",
+        "php-parallel-lint/php-parallel-lint": "^1.4",
+        "phpro/grumphp-shim": "^2.0",
+        "phpstan/phpstan": "^1.12|^2.1",
+        "phpunit/phpunit": "^9.0|^10.0|^11.0|^12.0",
+        "povils/phpmnd": "^3.6",
+        "rector/rector": "^1.2|^2.1",
+        "roave/security-advisories": "dev-latest",
+        "squizlabs/php_codesniffer": "^3.13",
+        "vimeo/psalm": "^5.26|^6.13"
+    },
+    "suggest": {
+        "inpsyde/wonolog": "For advanced WordPress logging with PSR-3 compatibility"
+    },
+    "autoload": {
+        "psr-4": {
+            "WpSpaghetti\\WpLogger\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "WpSpaghetti\\WpLogger\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true,
+            "phpro/grumphp-shim": true
+        },
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "scripts": {
+        "test-coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml",
+        "code-quality": "grumphp run --tasks=phpmnd,phpparser",
+        "grumphp": "grumphp run",
+        "lint": "grumphp run --tasks=phpcsfixer,phplint,phpstan,rector",
+        "qa": "grumphp run --no-interaction",
+        "security": "grumphp run --tasks=securitychecker_roave",
+        "static-analysis": "grumphp run --tasks=phpstan",
+        "test": "grumphp run --tasks=phpunit"
+    }
+}

@@ -1,0 +1,79 @@
+grumphp:
+    process_timeout: null
+    #fixer:
+    #    fix_by_default: true
+    tasks:
+        # Composer validation - check composer.json syntax and dependencies
+        composer: ~
+
+        # Composer normalize - standardize composer.json format
+        #FIXME - Temporarily disabled for PHP 8.4 compatibility
+        #composer_normalize: ~
+
+        # File size check - prevent overly large files
+        file_size:
+            ignore_patterns:
+                - 'vendor/*'
+                - '*.lock'
+
+        # Git commit message validation
+        git_commit_message: ~
+
+        # JSON validation
+        jsonlint:
+            ignore_patterns: ['vendor']
+            detect_key_conflicts: true
+
+        # PHP CS Fixer
+        phpcsfixer:
+            config: .php-cs-fixer.dist.php
+
+        # PHP Lint
+        phplint:
+            exclude: ['vendor']
+
+        # PHP Magic Number Detector
+        phpmnd:
+            exclude_path: ['vendor']
+
+        # PHP Parser
+        phpparser:
+            ignore_patterns: ['vendor']
+            visitors:
+                declare_strict_types: ~
+                forbidden_function_calls:
+                    blacklist:
+                        - 'var_dump'
+                        - 'print_r'
+                #no_exit_statements: ~
+
+        # PHPStan - Static Analysis
+        phpstan:
+            configuration: ./phpstan.neon.dist
+            memory_limit: '-1'
+
+        # PHPUnit - Tests
+        phpunit: ~
+
+        # PHP Version Check
+        #https://www.php.net/supported-versions.php
+        phpversion:
+            project: '8.0'
+
+        # Psalm - Additional Static Analysis
+        #FIXME - Temporarily disabled for PHP 8.4 compatibility
+        # psalm:
+        #     config: psalm.xml.dist
+        #     ignore_patterns: ['vendor']
+        #     threads: 4     
+
+        # Rector - Automated Refactoring
+        rector: ~
+
+        # Security Checker
+        securitychecker_roave:
+            run_always: true
+
+        # YAML validation
+        yamllint:
+            ignore_patterns: ['vendor']

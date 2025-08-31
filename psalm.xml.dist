@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!--
+This configuration is temporarily not used due to PHP 8.4 compatibility issues.
+To re-enable Psalm:
+1. Install psalm: composer require --dev vimeo/psalm:^6.13
+2. Remove PHPUnit plugin section if it causes issues
+3. Uncomment psalm task in grumphp.yml.dist
+-->
+<psalm
+    errorLevel="2"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="true"
+    findUnusedPsalmSuppress="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    cacheDirectory=".psalm"
+    allowPhpStormGenerics="true"
+    allowStringToStandForClass="true"
+>
+    <projectFiles>
+        <directory name="src" />
+        <directory name="tests" />
+        <ignoreFiles>
+            <directory name="vendor" />
+        </ignoreFiles>
+    </projectFiles>
+
+    <issueHandlers>
+        <!-- WordPress specific issues -->
+        <UndefinedFunction>
+            <errorLevel type="suppress">
+                <referencedFunction name="apply_filters" />
+                <referencedFunction name="do_action" />
+                <referencedFunction name="get_bloginfo" />
+                <referencedFunction name="current_user_can" />
+                <referencedFunction name="Env\env" />
+            </errorLevel>
+        </UndefinedFunction>
+
+        <UndefinedConstant>
+            <errorLevel type="suppress">
+                <file name="src/Logger.php" />
+                <file name="tests/bootstrap.php" />
+            </errorLevel>
+        </UndefinedConstant>
+
+        <UndefinedClass>
+            <errorLevel type="suppress">
+                <referencedClass name="Env\Env" />
+            </errorLevel>
+        </UndefinedClass>
+
+        <!-- Test-specific suppressions -->
+        <UndefinedGlobalVariable>
+            <errorLevel type="suppress">
+                <file name="tests/bootstrap.php" />
+            </errorLevel>
+        </UndefinedGlobalVariable>
+
+        <!-- Mixed types are acceptable in environment variables -->
+        <MixedArgument>
+            <errorLevel type="info" />
+        </MixedArgument>
+
+        <MixedAssignment>
+            <errorLevel type="info" />
+        </MixedAssignment>
+
+        <MixedReturnStatement>
+            <errorLevel type="info" />
+        </MixedReturnStatement>
+    </issueHandlers>
+
+    <!-- PHPUnit plugin disabled due to compatibility issues -->
+    <!--
+    <plugins>
+        <pluginClass class="Psalm\PhpUnitPlugin\Plugin" />
+    </plugins>
+    -->
+</psalm>

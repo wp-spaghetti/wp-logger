@@ -1,0 +1,4 @@
+.phpunit.cache/
+.psalm/
+vendor/
+composer.lock

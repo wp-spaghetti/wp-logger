@@ -1,0 +1,18 @@
+# Auto-label PRs based on changed files
+'area: core':
+- any: ['src/**']
+
+'area: tests':
+- any: ['tests/**']
+
+'area: docs':
+- any: ['*.md', 'docs/**']
+
+'area: ci/cd':
+- any: ['.github/**']
+
+'area: dependencies':
+- any: ['composer.json', 'composer.lock']
+
+'area: config':
+- any: ['*.php', '*.json', '*.xml', '*.yml', '*.yaml']

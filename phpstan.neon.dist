@@ -1,0 +1,41 @@
+parameters:
+    paths:
+        - src
+        - tests
+    level: 8
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        # WordPress functions that might not exist during testing
+        - '#Function wp_upload_dir not found\.#'
+        - '#Function wp_mkdir_p not found\.#'
+        - '#Function wp_json_encode not found\.#'
+        - '#Function wp_delete_file not found\.#'
+        - '#Function wp_rand not found\.#'
+        - '#Function apply_filters not found\.#'
+        - '#Function do_action not found\.#'
+        - '#Function did_action not found\.#'
+        - '#Function get_bloginfo not found\.#'
+        - '#Function current_user_can not found\.#'
+        - '#Function is_wp_error not found\.#'
+        - '#Class WP_Error not found\.#'
+        
+        # Constants that might not be defined during testing
+        - '#Constant ABSPATH not found\.#'
+        - '#Constant DAY_IN_SECONDS not found\.#'
+        - '#Constant WP_DEBUG not found\.#'
+        - '#Constant WP_ENV not found\.#'
+        - '#Constant MULTISITE not found\.#'
+        - '#Constant WP_CLI not found\.#'
+        
+        # Global variables in tests
+        - '#Variable \$_SERVER.*might not be defined\.#'
+        
+        # Dynamic namespace usage in tests
+        - '#.*WpSpaghetti.*not found\.#'
+        
+        # Dynamic constants in Wonolog namespace
+        - '#.*Wonolog.*not found\.#'
+        
+        # Test-specific issues that are expected
+        - '#Call to static method PHPUnit\\Framework\\Assert::assertIsBool\(\) with bool will always evaluate to true\.#'
+        - '#Call to static method PHPUnit\\Framework\\Assert::assertIsArray\(\) with array will always evaluate to true\.#'
