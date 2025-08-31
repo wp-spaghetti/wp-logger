@@ -17,7 +17,10 @@ grumphp:
                 - '*.lock'
 
         # Git commit message validation
-        git_commit_message: ~
+        git_commit_message:
+            enforce_capitalized_subject: false
+            matchers:
+                Must be formatted according to Conventional Commits: /^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?\!?:\s.{1,}$/
 
         # JSON validation
         jsonlint:
