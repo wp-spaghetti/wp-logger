@@ -36,7 +36,7 @@ jobs:
         id: wait-for-checks
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: 'Tests (PHP 8.3)'
+          checkName: 'Tests (PHP 8.4)'
           ref: ${{ github.event.pull_request.head.sha }}
           timeoutSeconds: 300
 
