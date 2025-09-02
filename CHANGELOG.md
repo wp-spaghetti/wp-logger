@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0](https://github.com/wp-spaghetti/wp-logger/compare/v1.0.0...v2.0.0) (2025-09-02)
+
+### ⚠ BREAKING CHANGES
+
+* add wp-env package (#14) (#15)
+
+### Features
+
+* add wp-env package ([#14](https://github.com/wp-spaghetti/wp-logger/issues/14)) ([#15](https://github.com/wp-spaghetti/wp-logger/issues/15)) ([c8afd7c](https://github.com/wp-spaghetti/wp-logger/commit/c8afd7c88f77dba98c31713dd92cc640d491197d))
+
 ## 1.0.0 (2025-09-01)
 
 ### Bug Fixes
