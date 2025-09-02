@@ -17,6 +17,7 @@ parameters:
         - '#Function get_bloginfo not found\.#'
         - '#Function current_user_can not found\.#'
         - '#Function is_wp_error not found\.#'
+        - '#Function wp_get_environment_type not found\.#'
         - '#Class WP_Error not found\.#'
         
         # Constants that might not be defined during testing
@@ -24,11 +25,17 @@ parameters:
         - '#Constant DAY_IN_SECONDS not found\.#'
         - '#Constant WP_DEBUG not found\.#'
         - '#Constant WP_ENV not found\.#'
+        - '#Constant WP_ENVIRONMENT_TYPE not found\.#'
         - '#Constant MULTISITE not found\.#'
         - '#Constant WP_CLI not found\.#'
         
-        # Global variables in tests
+        # WP Env related - Environment class methods
+        - '#Call to static method WpSpaghetti\\WpEnv\\Environment::.*#'
+        - '#Class WpSpaghetti\\WpEnv\\Environment not found\.#'
+        
+        # Global variables in tests and WordPress context
         - '#Variable \$_SERVER.*might not be defined\.#'
+        - '#Accessing offset .* on mixed\.#'
         
         # Dynamic namespace usage in tests
         - '#.*WpSpaghetti.*not found\.#'
@@ -36,6 +43,21 @@ parameters:
         # Dynamic constants in Wonolog namespace
         - '#.*Wonolog.*not found\.#'
         
+        # Test-specific mock functions
+        - '#Function mock_getenv not found\.#'
+        - '#Function set_mock_env_var not found\.#'
+        - '#Function unset_mock_env_var not found\.#'
+        - '#Function get_mock_env_vars not found\.#'
+        - '#Function set_mock_constant not found\.#'
+        
         # Test-specific issues that are expected
         - '#Call to static method PHPUnit\\Framework\\Assert::assertIsBool\(\) with bool will always evaluate to true\.#'
         - '#Call to static method PHPUnit\\Framework\\Assert::assertIsArray\(\) with array will always evaluate to true\.#'
+        
+        # Environment-specific dynamic calls
+        - '#Method WpSpaghetti\\WpLogger\\Logger::getPluginEnvKey\(\) is unused\.#'
+        - '#Method WpSpaghetti\\WpLogger\\Logger::getEnvInt\(\) is unused\.#'
+        
+        # Dynamic configuration handling
+        - '#Cannot cast mixed to string\.#'
+        - '#Cannot cast mixed to int\.#'

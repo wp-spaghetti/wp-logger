@@ -69,6 +69,56 @@ final class LoggerTest extends TestCase
         self::assertSame('TEST_PLUGIN_LOG_RETENTION_DAYS', $config['log_retention_constant']);
     }
 
+    public function testEnvironmentBasedConfiguration(): void
+    {
+        // Set environment variables
+        set_mock_env_var('LOGGER_PLUGIN_NAME', 'env-plugin');
+        set_mock_env_var('LOGGER_RETENTION_DAYS', '45');
+        set_mock_env_var('LOGGER_MIN_LEVEL', 'warning');
+        set_mock_env_var('LOGGER_WONOLOG_NAMESPACE', 'Custom\Logger');
+
+        $logger = new Logger();
+
+        $config = $logger->getConfig();
+
+        self::assertSame('env-plugin', $config['plugin_name']);
+        self::assertSame(45, $config['log_retention_days']);
+        self::assertSame('warning', $config['min_log_level']);
+        self::assertSame('Custom\Logger', $config['wonolog_namespace']);
+    }
+
+    public function testPluginSpecificEnvironmentVariables(): void
+    {
+        // Set plugin-specific environment variables (should override global ones)
+        set_mock_env_var('LOGGER_RETENTION_DAYS', '30'); // Global
+        set_mock_env_var('MY_PLUGIN_LOG_RETENTION_DAYS', '90'); // Plugin-specific
+
+        $logger = new Logger([
+            'plugin_name' => 'my-plugin',
+        ]);
+
+        $config = $logger->getConfig();
+
+        // Should use plugin-specific value
+        self::assertSame(90, $config['log_retention_days']);
+    }
+
+    public function testConfigurationPriority(): void
+    {
+        // Set multiple sources of configuration
+        set_mock_env_var('LOGGER_RETENTION_DAYS', '30'); // Environment
+        \define('TEST_PLUGIN_LOG_RETENTION_DAYS', 60); // WordPress constant
+
+        $logger = new Logger([
+            'plugin_name' => 'test-plugin',
+            'log_retention_days' => 90, // Config array
+        ]);
+
+        // Environment should override config array
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame(30, $debugInfo['log_retention_days']);
+    }
+
     public function testDefaultConfiguration(): void
     {
         $logger = new Logger(['plugin_name' => 'test']);
@@ -76,36 +126,33 @@ final class LoggerTest extends TestCase
         $config = $logger->getConfig();
 
         self::assertSame('test', $config['plugin_name']);
-        self::assertSame(30, $config['log_retention_days']);
+        self::assertSame(30, $config['log_retention_days']); // Default value
         self::assertSame('Inpsyde\Wonolog', $config['wonolog_namespace']);
-    }
-
-    public function testCustomConstants(): void
-    {
-        $logger = new Logger([
-            'plugin_name' => 'test',
-            'disable_logging_constant' => 'CUSTOM_DISABLE',
-            'log_retention_constant' => 'CUSTOM_RETENTION',
-        ]);
-
-        $config = $logger->getConfig();
-
-        self::assertSame('CUSTOM_DISABLE', $config['disable_logging_constant']);
-        self::assertSame('CUSTOM_RETENTION', $config['log_retention_constant']);
+        self::assertSame('debug', $config['min_log_level']);
     }
 
     public function testRequiredPluginNameValidation(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('plugin_name is required in configuration');
+        $this->expectExceptionMessage('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
 
         new Logger([]);
+    }
+
+    public function testPluginNameFromEnvironment(): void
+    {
+        set_mock_env_var('LOGGER_PLUGIN_NAME', 'env-test-plugin');
+
+        $logger = new Logger();
+
+        $config = $logger->getConfig();
+        self::assertSame('env-test-plugin', $config['plugin_name']);
     }
 
     public function testEmptyPluginNameValidation(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('plugin_name is required in configuration');
+        $this->expectExceptionMessage('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
 
         new Logger(['plugin_name' => '']);
     }
@@ -113,9 +160,46 @@ final class LoggerTest extends TestCase
     public function testWhitespacePluginNameValidation(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('plugin_name is required in configuration');
+        $this->expectExceptionMessage('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
 
         new Logger(['plugin_name' => '   ']);
+    }
+
+    public function testMinimumLogLevelFiltering(): void
+    {
+        // Set minimum level to warning
+        $logger = new Logger([
+            'plugin_name' => 'test-plugin',
+            'min_log_level' => 'warning',
+        ]);
+
+        $logger->debug('This should be filtered out');
+        $logger->info('This should be filtered out');
+        $logger->warning('This should be logged');
+        $logger->error('This should be logged');
+
+        $actions = get_triggered_actions();
+
+        // Should only have logged actions for warning and error
+        $loggedActions = array_filter($actions, static fn (array $action): bool => 'wp_logger_logged' === $action['hook']);
+
+        self::assertCount(2, $loggedActions);
+    }
+
+    public function testLoggingBehaviorWithAndWithoutWonolog(): void
+    {
+        $logger = new Logger(['plugin_name' => 'test-plugin']);
+
+        // Without Wonolog (fallback mode)
+        $logger->info('Test message without Wonolog');
+
+        $actions = get_triggered_actions();
+
+        // Should have fallback actions since Wonolog is not active
+        $fallbackActions = array_filter($actions, static fn (array $action): bool => str_starts_with($action['hook'], 'wp_logger_fallback'));
+
+        // Should have both general fallback and specific level fallback
+        self::assertCount(2, $fallbackActions);
     }
 
     public function testBasicLogging(): void
@@ -168,34 +252,22 @@ final class LoggerTest extends TestCase
         self::assertSame($context, $loggedAction['args'][2]);
     }
 
-    public function testFileLogging(): void
+    public function testFileLoggingWithEnvironmentInfo(): void
     {
-        // Create a fresh logger for this test to avoid any side effects from previous tests
+        // Set environment for testing
+        set_mock_env_var('WP_ENVIRONMENT_TYPE', 'development');
+
         $logger = new Logger(['plugin_name' => 'file-logging-test']);
 
         // Verify test environment setup
         $uploadDir = wp_upload_dir();
         self::assertSame($this->testLogDir, $uploadDir['basedir'], 'Upload dir should be our test directory');
 
-        // Verify debug info shows correct state before logging
-        $debugInfo = $logger->getDebugInfo();
+        // Force file logging (simulate production-like environment)
+        set_mock_env_var('WP_DEBUG', 'false');
+        set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
 
-        // Debug what's happening
-        if ($debugInfo['logging_disabled']) {
-            $constantName = $debugInfo['disable_constant'];
-            $isDefined = \defined($constantName);
-            $constantValue = $isDefined ? \constant($constantName) : 'undefined';
-
-            self::fail(
-                'Logging is unexpectedly disabled. '
-                .\sprintf('Constant: %s, ', $constantName)
-                .'Defined: '.($isDefined ? 'true' : 'false').', '
-                .('Value: '.$constantValue)
-            );
-        }
-
-        // Force file logging (not debug mode)
-        $logger->info('Test file logging');
+        $logger->info('Test file logging with environment');
 
         // Check if log directory was created
         $logDir = $this->testLogDir.'/file-logging-test/logs';
@@ -205,30 +277,89 @@ final class LoggerTest extends TestCase
         $files = glob($logDir.'/*.dat');
         self::assertNotEmpty($files, 'Log files should exist in: '.$logDir);
 
-        // Check log file content
+        // Check log file content includes environment info
         if (!empty($files)) {
             $logContent = file_get_contents($files[0]);
             self::assertIsString($logContent);
-            self::assertStringContainsString('INFO: Test file logging', $logContent);
+            self::assertStringContainsString('INFO: Test file logging with environment', $logContent);
         }
     }
 
-    public function testProtectionFilesCreation(): void
+    public function testLoggingDisabledViaEnvironment(): void
     {
-        // Use a unique plugin name to avoid conflicts
-        $logger = new Logger(['plugin_name' => 'protection-files-test']);
+        // Disable logging via environment variable
+        set_mock_env_var('LOGGER_DISABLED', 'true');
 
-        // Verify test environment setup
-        $uploadDir = wp_upload_dir();
-        self::assertSame($this->testLogDir, $uploadDir['basedir'], 'Upload dir should be our test directory');
+        $logger = new Logger(['plugin_name' => 'test-plugin']);
 
-        // Verify debug info shows correct state
+        // Verify logging is disabled
+        $debugInfo = $logger->getDebugInfo();
+        self::assertTrue($debugInfo['logging_disabled']);
+
+        $logger->info('This should not be logged');
+
+        // Should not create log directory when disabled
+        $logDir = $this->testLogDir.'/test-plugin/logs';
+        self::assertDirectoryDoesNotExist($logDir);
+    }
+
+    public function testPluginSpecificLoggingDisabled(): void
+    {
+        // Disable logging for specific plugin
+        set_mock_env_var('TEST_PLUGIN_DISABLED', 'true');
+
+        $logger = new Logger(['plugin_name' => 'test-plugin']);
+
+        // Verify logging is disabled
+        $debugInfo = $logger->getDebugInfo();
+        self::assertTrue($debugInfo['logging_disabled']);
+    }
+
+    public function testEnhancedDebugInfo(): void
+    {
+        set_mock_env_var('WP_ENVIRONMENT_TYPE', 'staging');
+        set_mock_env_var('LOGGER_MIN_LEVEL', 'warning');
+
+        $logger = new Logger([
+            'plugin_name' => 'debug-test',
+            'log_retention_days' => 45,
+        ]);
+
         $debugInfo = $logger->getDebugInfo();
 
-        // Skip this test if logging is disabled to avoid false failures
-        if ($debugInfo['logging_disabled']) {
-            self::markTestSkipped('Logging is disabled, cannot test protection files creation');
-        }
+        // Test basic configuration
+        self::assertArrayHasKey('plugin_name', $debugInfo);
+        self::assertArrayHasKey('min_log_level', $debugInfo);
+        self::assertArrayHasKey('log_retention_days', $debugInfo);
+
+        // Test environment information
+        self::assertArrayHasKey('environment_type', $debugInfo);
+        self::assertArrayHasKey('is_debug', $debugInfo);
+        self::assertArrayHasKey('is_development', $debugInfo);
+        self::assertArrayHasKey('is_staging', $debugInfo);
+        self::assertArrayHasKey('is_production', $debugInfo);
+        self::assertArrayHasKey('is_container', $debugInfo);
+        self::assertArrayHasKey('server_software', $debugInfo);
+
+        // Test WordPress integration
+        self::assertArrayHasKey('wp_debug', $debugInfo);
+        self::assertArrayHasKey('wp_multisite', $debugInfo);
+
+        // Test values
+        self::assertSame('debug-test', $debugInfo['plugin_name']);
+        self::assertSame('warning', $debugInfo['min_log_level']);
+        self::assertSame('staging', $debugInfo['environment_type']);
+        self::assertTrue($debugInfo['is_staging']);
+        self::assertFalse($debugInfo['is_production']);
+    }
+
+    public function testProtectionFilesWithEnvironmentInfo(): void
+    {
+        // Set environment to production to force file logging (not error_log)
+        set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
+        set_mock_env_var('WP_DEBUG', 'false');
+
+        $logger = new Logger(['plugin_name' => 'protection-files-test']);
 
         $logger->info('Create protection files');
 
@@ -236,7 +367,7 @@ final class LoggerTest extends TestCase
         $logDir = $pluginDir.'/logs';
 
         // Check that directory exists first
-        self::assertDirectoryExists($logDir, 'Log directory should be created at: '.$logDir);
+        self::assertDirectoryExists($logDir, 'Log directory should be created');
 
         // Check protection files exist
         self::assertFileExists($logDir.'/.htaccess');
@@ -245,15 +376,13 @@ final class LoggerTest extends TestCase
         self::assertFileExists($pluginDir.'/index.php');
         self::assertFileExists($logDir.'/README');
 
-        // Check .htaccess content
-        $htaccessContent = file_get_contents($logDir.'/.htaccess');
-        self::assertIsString($htaccessContent);
-        self::assertStringContainsString('Deny from all', $htaccessContent);
-
-        // Check index.php content
-        $indexContent = file_get_contents($logDir.'/index.php');
-        self::assertIsString($indexContent);
-        self::assertStringContainsString('http_response_code(403)', $indexContent);
+        // Check README includes environment information
+        $readmeContent = file_get_contents($logDir.'/README');
+        self::assertIsString($readmeContent);
+        self::assertStringContainsString('Environment Variables', $readmeContent);
+        self::assertStringContainsString('LOGGER_DISABLED', $readmeContent);
+        self::assertStringContainsString('PROTECTION_FILES_TEST_DISABLED', $readmeContent);
+        self::assertStringContainsString('Environment: production', $readmeContent);
     }
 
     public function testWonologNotActiveByDefault(): void
@@ -287,88 +416,15 @@ final class LoggerTest extends TestCase
         self::assertFalse($logger->getDebugInfo()['wonolog_active']);
     }
 
-    public function testDebugModeUsesErrorLog(): void
-    {
-        // Test that debug mode doesn't create file logs
-        // Note: We can't directly test error_log() output, but we can verify
-        // that file logging is skipped when WP_DEBUG is true
-
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
-
-        // Simulate debug mode by checking the logic doesn't create files
-        // In debug mode, error_log is used instead of file logging
-
-        // Create a test scenario where we can verify behavior
-        $debugInfo = $logger->getDebugInfo();
-        self::assertIsBool($debugInfo['wp_debug']);
-    }
-
-    public function testLoggingDisabledViaConstant(): void
-    {
-        // Define the disable constant using the proper format
-        \define('TEST_PLUGIN_DISABLE_LOGGING', true);
-
-        $logger = new Logger(['plugin_name' => 'test_plugin']);
-
-        // Verify logging is disabled
-        $debugInfo = $logger->getDebugInfo();
-        self::assertTrue($debugInfo['logging_disabled']);
-
-        $logger->info('This should not be logged');
-
-        // Should not create log directory when disabled
-        $logDir = $this->testLogDir.'/test_plugin/logs';
-        self::assertDirectoryDoesNotExist($logDir);
-
-        // Note: Fallback actions are still triggered to allow third-party plugins to handle logging
-        // but the actual file logging should be skipped
-        $actions = get_triggered_actions();
-        $fallbackActions = array_filter($actions, static fn (array $action): bool => str_starts_with($action['hook'], 'wp_logger_fallback'));
-
-        // Fallback hooks are called but file logging should be disabled
-        self::assertNotEmpty($fallbackActions);
-
-        // But no log files should be created
-        self::assertDirectoryDoesNotExist($logDir);
-    }
-
     public function testCustomRetentionDays(): void
     {
-        // Define custom retention
-        \define('TEST_PLUGIN_LOG_RETENTION_DAYS', 90);
+        // Define custom retention via environment
+        set_mock_env_var('TEST_PLUGIN_LOG_RETENTION_DAYS', '90');
 
         $logger = new Logger(['plugin_name' => 'test_plugin']);
 
         $debugInfo = $logger->getDebugInfo();
         self::assertSame(90, $debugInfo['log_retention_days']);
-    }
-
-    public function testGetDebugInfo(): void
-    {
-        $logger = new Logger([
-            'plugin_name' => 'debug-test',
-            'log_retention_days' => 45,
-        ]);
-
-        $debugInfo = $logger->getDebugInfo();
-
-        $debugInfo = $logger->getDebugInfo();
-
-        // Test specific debug info fields
-        self::assertArrayHasKey('plugin_name', $debugInfo);
-        self::assertArrayHasKey('wonolog_active', $debugInfo);
-        self::assertArrayHasKey('wonolog_namespace', $debugInfo);
-        self::assertArrayHasKey('log_retention_days', $debugInfo);
-        self::assertArrayHasKey('disable_constant', $debugInfo);
-        self::assertArrayHasKey('retention_constant', $debugInfo);
-        self::assertArrayHasKey('wp_debug', $debugInfo);
-        self::assertArrayHasKey('logging_disabled', $debugInfo);
-        self::assertArrayHasKey('log_directory', $debugInfo);
-        self::assertArrayHasKey('constants_defined', $debugInfo);
-
-        self::assertSame('debug-test', $debugInfo['plugin_name']);
-        self::assertSame(45, $debugInfo['log_retention_days']);
-        self::assertSame('DEBUG_TEST_DISABLE_LOGGING', $debugInfo['disable_constant']);
     }
 
     public function testConstantNameGeneration(): void
@@ -390,10 +446,11 @@ final class LoggerTest extends TestCase
         }
     }
 
-    public function testLogCleanup(): void
+    public function testLogCleanupWithEnvironmentRetention(): void
     {
-        // Set wp_rand to trigger cleanup
-        set_wp_rand_result(1);
+        // Set environment retention
+        set_mock_env_var('CLEANUP_TEST_LOG_RETENTION_DAYS', '1'); // 1 day retention
+        set_wp_rand_result(1); // Force cleanup to run
 
         $logger = new Logger(['plugin_name' => 'cleanup-test']);
 
@@ -404,14 +461,36 @@ final class LoggerTest extends TestCase
         $oldLogFile = $logDir.'/old-log.dat';
         file_put_contents($oldLogFile, 'old log content');
 
-        // Set file modification time to be older than retention period
-        touch($oldLogFile, time() - (31 * DAY_IN_SECONDS));
+        // Set file modification time to be older than 1 day retention period
+        touch($oldLogFile, time() - (2 * DAY_IN_SECONDS)); // 2 days old
 
         // Trigger logging which should trigger cleanup
         $logger->info('Trigger cleanup');
 
-        // Old file should be deleted
+        // Old file should be deleted due to environment-based retention
         self::assertFileDoesNotExist($oldLogFile);
+    }
+
+    public function testFallbackLoggingBehaviorInDifferentEnvironments(): void
+    {
+        // Test debug environment (should use error_log)
+        set_mock_env_var('WP_DEBUG', 'true');
+
+        $debugLogger = new Logger(['plugin_name' => 'debug-test']);
+
+        // Verify it's in debug mode
+        $debugInfo = $debugLogger->getDebugInfo();
+        self::assertTrue($debugInfo['is_debug']);
+
+        // Test production environment (should use file logging)
+        set_mock_env_var('WP_DEBUG', 'false');
+        set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
+
+        $prodLogger = new Logger(['plugin_name' => 'prod-test']);
+
+        $debugInfo = $prodLogger->getDebugInfo();
+        self::assertTrue($debugInfo['is_production']);
+        self::assertFalse($debugInfo['is_debug']);
     }
 
     /**

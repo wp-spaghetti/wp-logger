@@ -12,15 +12,17 @@
 
 # WP Logger
 
-A comprehensive WordPress logging service with Wonolog integration, secure file logging, and multi-server protection.
+A comprehensive WordPress logging service with Wonolog integration, secure file logging, multi-server protection, and environment-based configuration.
 
 ## Features
 
 - **PSR-3 Compatibility**: Full implementation of PSR-3 LoggerInterface for standardized logging
+- **Environment-Based Configuration**: Powered by [WP Env](https://github.com/wp-spaghetti/wp-env) for flexible configuration management
 - **Wonolog Integration**: Automatic detection and seamless integration with Inpsyde Wonolog
 - **Secure File Logging**: WordPress.org compliant fallback logging with multi-server protection
 - **Multi-Server Protection**: Built-in protection files for Apache, Nginx, IIS, LiteSpeed, and more
-- **Configurable Retention**: Automatic log cleanup with customizable retention periods
+- **Configurable Log Levels**: Minimum log level filtering with environment variable support
+- **Intelligent Log Retention**: Environment-specific retention policies with automatic cleanup
 - **Hook System**: Extensible architecture with WordPress hooks for customization
 - **Debug Mode Support**: Intelligent handling of development vs production environments
 - **Zero Dependencies**: Works with or without external logging libraries
@@ -53,29 +55,26 @@ $logger->error('Something went wrong', ['error_code' => 500]);
 $logger->debug('Debug information', ['user_id' => 123]);
 ```
 
-### 2. Advanced Configuration
+### 2. Environment-Based Configuration
 
 ```php
 <?php
 use WpSpaghetti\WpLogger\Logger;
 
+// Configuration can come from environment variables via WP Env
 $logger = new Logger([
     'plugin_name' => 'my-plugin',
-    'log_retention_days' => 60,
-    'wonolog_namespace' => 'MyApp\Wonolog',
-    'disable_logging_constant' => 'MY_PLUGIN_DISABLE_LOGGING',
-    'log_retention_constant' => 'MY_PLUGIN_LOG_RETENTION_DAYS'
+    'log_retention_days' => 60, // Can be overridden by LOGGER_RETENTION_DAYS env var
+    'min_log_level' => 'info',  // Can be overridden by LOGGER_MIN_LEVEL env var
 ]);
 
-// All PSR-3 log levels supported
-$logger->emergency('System is down!');
-$logger->alert('Immediate action required');
-$logger->critical('Critical component failed');
-$logger->error('Runtime error occurred');
-$logger->warning('Deprecated function used');
-$logger->notice('User login successful');
-$logger->info('Operation completed');
-$logger->debug('Variable state', ['var' => $value]);
+// Logging behavior:
+// - If Wonolog is available: uses Wonolog for advanced logging
+// - If Wonolog not available: uses fallback (error_log in debug/dev, file logging in production)
+$logger->debug('Debug information');
+$logger->info('Informational message');
+$logger->warning('Warning message');
+$logger->error('Error occurred');
 ```
 
 ### 3. WordPress Integration
@@ -117,7 +116,15 @@ class MyPlugin
 
 ## Configuration
 
-WP Logger supports both WordPress-native `define()` constants and configuration arrays.
+WP Logger v2.0 supports multiple configuration sources with intelligent priority:
+
+### Configuration Priority (Highest to Lowest)
+
+1. **Plugin-specific Environment Variables** (`MY_PLUGIN_*`)
+2. **Global Logger Environment Variables** (`LOGGER_*`) 
+3. **WordPress Constants** (wp-config.php)
+4. **Configuration Array** (passed to constructor)
+5. **Default Values**
 
 ### Configuration Array Options
 
@@ -128,6 +135,9 @@ $config = [
     
     // Optional: Days to keep log files (default: 30)
     'log_retention_days' => 60,
+    
+    // Optional: Minimum log level to record (default: 'debug')
+    'min_log_level' => 'info',
     
     // Optional: Wonolog namespace (default: 'Inpsyde\Wonolog')
     'wonolog_namespace' => 'MyApp\Wonolog',
@@ -142,6 +152,22 @@ $config = [
 ];
 ```
 
+### Environment Variables (via WP Env)
+
+```bash
+# Global logger settings
+LOGGER_PLUGIN_NAME=my-plugin           # Plugin identifier
+LOGGER_RETENTION_DAYS=30               # Log retention period
+LOGGER_MIN_LEVEL=info                  # Minimum log level
+LOGGER_DISABLED=false                  # Disable all logging
+LOGGER_WONOLOG_NAMESPACE=Inpsyde\Wonolog
+
+# Plugin-specific settings (higher priority)
+MY_PLUGIN_LOG_RETENTION_DAYS=60
+MY_PLUGIN_DISABLED=false
+MY_PLUGIN_MIN_LEVEL=warning
+```
+
 ### WordPress Constants (wp-config.php)
 
 ```php
@@ -149,31 +175,35 @@ $config = [
 define('MY_PLUGIN_DISABLE_LOGGING', true);      // Disable all logging
 define('MY_PLUGIN_LOG_RETENTION_DAYS', 90);     // Keep logs for 90 days
 
-// Global WordPress debug (affects all WP Logger instances)
-define('WP_DEBUG', true);  // Forces error_log() usage regardless of other settings
+// Global WordPress debug (affects fallback behavior)
+define('WP_DEBUG', true);  // Forces error_log() usage in fallback mode
 ```
 
 ## Logging Behavior
 
-WP Logger intelligently handles different environments:
+WP Logger uses a simple, reliable logging strategy:
 
-### Development Mode (WP_DEBUG = true)
-- Uses PHP `error_log()` function
-- All log levels are recorded
-- Immediate output to error log
-- Ignores disable settings (debug takes precedence)
+1. **With Wonolog Available**: Uses Wonolog for advanced logging features, routing, and formatting
+2. **Without Wonolog (Fallback)**:
+   - **Development/Debug Mode**: Logs go to PHP error_log for immediate developer feedback
+   - **Production Mode**: Logs go to secure files in WordPress uploads directory
+   - **Disabled Mode**: Only hooks are triggered (no actual logging)
 
-### Production Mode (WP_DEBUG = false)
-- Uses secure file logging in `wp-content/uploads/{plugin-name}/logs/`
-- Protected directories with `.htaccess`, `web.config`, etc.
-- Automatic log rotation and cleanup
-- Respects disable logging settings
+### Environment Detection for Fallback Logging
 
-### With Wonolog Available
-- Automatically detects and uses Wonolog
-- Full PSR-3 compatibility
-- Advanced log routing and formatting
-- Integration with WordPress admin
+When Wonolog is not available, WP Logger adapts its fallback behavior:
+
+### Development/Debug Environment
+- **Detection**: `WP_DEBUG=true` or `WP_ENVIRONMENT_TYPE=development`
+- **Behavior**: Uses PHP error_log for immediate developer feedback
+- **Format**: Includes environment tags for context
+- **Performance**: Optimized for debugging with detailed context
+
+### Production Environment  
+- **Detection**: `WP_DEBUG=false` and `WP_ENVIRONMENT_TYPE=production`
+- **Behavior**: Uses secure file logging with WordPress-compliant protection
+- **Format**: Minimal overhead, performance-optimized
+- **Security**: Protected directories with multi-server support
 
 ## File Structure
 
@@ -190,84 +220,6 @@ wp-content/uploads/
         ├── README             # Server configuration guide
         ├── 2024-01-15_a1b2c3d4.dat
         └── 2024-01-16_a1b2c3d4.dat
-```
-
-## Hook System
-
-WP Logger provides several hooks for customization:
-
-### Override Logging Behavior
-
-```php
-// Completely override logging (return non-null to prevent default logging)
-add_filter('wp_logger_override_log', function($result, $level, $message, $context, $config) {
-    // Custom logging implementation
-    my_custom_logger($level, $message, $context);
-    return true; // Prevent default logging
-}, 10, 5);
-```
-
-### Customize Wonolog Integration
-
-```php
-// Change Wonolog namespace
-add_filter('wp_logger_wonolog_namespace', function($namespace) {
-    return 'MyApp\Logger';
-});
-
-// Modify Wonolog prefix
-add_filter('wp_logger_wonolog_prefix', function($prefix, $level, $message, $context, $config) {
-    return 'myapp.log';
-}, 10, 5);
-
-// Customize Wonolog action name
-add_filter('wp_logger_wonolog_action', function($action, $level, $message, $context, $config) {
-    return 'custom.log.' . $level;
-}, 10, 5);
-```
-
-### Hook Into Logging Events
-
-```php
-// React to all log entries
-add_action('wp_logger_logged', function($level, $message, $context, $plugin_name) {
-    // Send critical errors to external monitoring
-    if ($level === 'critical') {
-        send_to_monitoring_service($message, $context);
-    }
-}, 10, 4);
-
-// Handle fallback logging
-add_action('wp_logger_fallback', function($level, $message, $context, $plugin_name) {
-    // Custom fallback when Wonolog is not available
-}, 10, 4);
-
-// Hook into specific log levels during fallback
-add_action('wp_logger_fallback_error', function($message, $context, $plugin_name) {
-    // Handle error-level logs specifically
-}, 10, 3);
-```
-
-## Multi-Server Protection
-
-WP Logger automatically creates protection files for various web servers:
-
-- **Apache**: `.htaccess` files
-- **Nginx**: Configuration examples in README
-- **IIS**: `web.config` files
-- **LiteSpeed**: `.htaccess` compatible
-- **Universal**: `index.php` protection files
-
-### Manual Server Configuration
-
-For Nginx, add to your server configuration:
-
-```nginx
-# Block access to WP Logger files
-location ~* /wp-content/uploads/.*/logs/ {
-    deny all;
-    return 403;
-}
 ```
 
 ## API Reference
@@ -434,6 +386,160 @@ class ErrorHandler
 }
 ```
 
+### Environment-Aware Plugin
+
+```php
+<?php
+/*
+Plugin Name: Environment-Aware Plugin
+Version: 2.0.0
+*/
+
+use WpSpaghetti\WpLogger\Logger;
+
+class EnvironmentAwarePlugin 
+{
+    private Logger $logger;
+    
+    public function __construct() 
+    {
+        // Logger automatically detects environment via WP Env
+        $this->logger = new Logger();
+        
+        register_activation_hook(__FILE__, [$this, 'activate']);
+        add_action('plugins_loaded', [$this, 'init']);
+    }
+    
+    public function activate(): void 
+    {
+        $debugInfo = $this->logger->getDebugInfo();
+        
+        $this->logger->info('Plugin activated', [
+            'environment' => $debugInfo['environment_type'],
+            'is_container' => $debugInfo['is_container'],
+            'server' => $debugInfo['server_software']
+        ]);
+    }
+    
+    public function init(): void 
+    {
+        $debugInfo = $this->logger->getDebugInfo();
+        
+        if ($debugInfo['is_development']) {
+            // Development-specific initialization
+            $this->enableDebugMode();
+            $this->logger->debug('Plugin initialized in development mode');
+        } elseif ($debugInfo['is_staging']) {
+            // Staging-specific initialization
+            $this->enableStagingFeatures();
+            $this->logger->info('Plugin initialized in staging mode');
+        } else {
+            // Production initialization
+            $this->enableProductionOptimizations();
+            $this->logger->notice('Plugin initialized in production mode');
+        }
+    }
+    
+    private function enableDebugMode(): void 
+    {
+        // Enable verbose logging, profiling, etc.
+        $this->logger->debug('Debug mode enabled');
+    }
+    
+    private function enableStagingFeatures(): void 
+    {
+        // Enable testing features, disable emails, etc.
+        $this->logger->info('Staging features enabled');
+    }
+    
+    private function enableProductionOptimizations(): void 
+    {
+        // Enable caching, disable debug features, etc.
+        $this->logger->notice('Production optimizations enabled');
+    }
+}
+
+new EnvironmentAwarePlugin();
+```
+
+## Hook System
+
+WP Logger provides several hooks for customization:
+
+### Override Logging Behavior
+
+```php
+// Completely override logging (return non-null to prevent default logging)
+add_filter('wp_logger_override_log', function($result, $level, $message, $context, $config) {
+    // Custom logging implementation
+    my_custom_logger($level, $message, $context);
+    return true; // Prevent default logging
+}, 10, 5);
+```
+
+### Customize Wonolog Integration
+
+```php
+// Change Wonolog namespace
+add_filter('wp_logger_wonolog_namespace', function($namespace) {
+    return 'MyApp\Logger';
+});
+
+// Modify Wonolog prefix
+add_filter('wp_logger_wonolog_prefix', function($prefix, $level, $message, $context, $config) {
+    return 'myapp.log';
+}, 10, 5);
+
+// Customize Wonolog action name
+add_filter('wp_logger_wonolog_action', function($action, $level, $message, $context, $config) {
+    return 'custom.log.' . $level;
+}, 10, 5);
+```
+
+### Hook Into Logging Events
+
+```php
+// React to all log entries
+add_action('wp_logger_logged', function($level, $message, $context, $plugin_name) {
+    // Send critical errors to external monitoring
+    if ($level === 'critical') {
+        send_to_monitoring_service($message, $context);
+    }
+}, 10, 4);
+
+// Handle fallback logging
+add_action('wp_logger_fallback', function($level, $message, $context, $plugin_name) {
+    // Custom fallback when Wonolog is not available
+}, 10, 4);
+
+// Hook into specific log levels during fallback
+add_action('wp_logger_fallback_error', function($message, $context, $plugin_name) {
+    // Handle error-level logs specifically
+}, 10, 3);
+```
+
+## Multi-Server Protection
+
+WP Logger automatically creates protection files for various web servers:
+
+- **Apache**: `.htaccess` files
+- **Nginx**: Configuration examples in README
+- **IIS**: `web.config` files
+- **LiteSpeed**: `.htaccess` compatible
+- **Universal**: `index.php` protection files
+
+### Manual Server Configuration
+
+For Nginx, add to your server configuration:
+
+```nginx
+# Block access to WP Logger files
+location ~* /wp-content/uploads/.*/logs/ {
+    deny all;
+    return 403;
+}
+```
+
 ## Troubleshooting
 
 ### Debug Information
@@ -464,7 +570,8 @@ var_dump($debugInfo);
 
 - PHP 8.0 or higher
 - WordPress 5.0 or higher
-- PSR Log 3.0 for interface compatibility
+- PSR Log 2.0|3.0 for interface compatibility
+- WP Env 2.0+ for environment management
 - Optional: [Inpsyde Wonolog](https://github.com/inpsyde/wonolog) for advanced logging
 
 ## Changelog
@@ -485,8 +592,9 @@ All releases are automatically created when changes are pushed to the `main` bra
 
 For your contributions please use:
 
+- [Conventional Commits](https://www.conventionalcommits.org)
 - [git-flow workflow](https://danielkummer.github.io/git-flow-cheatsheet/)
-- [conventional commits](https://www.conventionalcommits.org)
+- [Pull request workflow](https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project)
 
 ## Sponsor
 

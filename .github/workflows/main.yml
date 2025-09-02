@@ -88,14 +88,14 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
-      - name: Run PHP CS Fixer
+      - name: Run linters
         run: composer lint
 
-      - name: Run PHPStan
-        run: composer static-analysis
+      - name: Run static analysis
+        run: composer analysis
 
       - name: Run security check
         run: composer security
 
-      - name: Run PHPMND
-        run: composer code-quality
+      - name: Run code quality
+        run: composer quality

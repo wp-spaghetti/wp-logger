@@ -15,35 +15,60 @@ namespace WpSpaghetti\WpLogger;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use WpSpaghetti\WpEnv\Environment;
 
 if (!\defined('ABSPATH')) {
     exit;
 }
 
 /**
- * Comprehensive WordPress logger with Wonolog integration and secure fallback.
+ * Comprehensive WordPress logger with Wonolog integration, secure fallback, and environment-based configuration.
  *
  * Features:
  * - PSR-3 compatible logging interface
+ * - Environment variables configuration via WP Env
  * - Automatic Wonolog detection and integration
  * - Secure file-based fallback logging
  * - Multi-server protection (Apache, Nginx, IIS, etc.)
+ * - Environment-aware log levels and retention
  * - Configurable log retention and cleanup
  * - Hook-based customization system
  */
 class Logger implements LoggerInterface
 {
     /**
+     * Default log retention days.
+     */
+    private const DEFAULT_LOG_RETENTION_DAYS = 30;
+
+    /**
      * Default configuration values.
      *
      * @var array<string, mixed>
      */
     private const DEFAULT_CONFIG = [
-        'plugin_name' => 'wp-logger',
-        'log_retention_days' => 30,
+        'plugin_name' => null, // Required - can come from environment
+        'log_retention_days' => self::DEFAULT_LOG_RETENTION_DAYS,
         'wonolog_namespace' => 'Inpsyde\Wonolog',
+        'min_log_level' => LogLevel::DEBUG,
         'disable_logging_constant' => null, // Will be auto-generated if not provided
         'log_retention_constant' => null,   // Will be auto-generated if not provided
+    ];
+
+    /**
+     * Log level priority mapping for minimum level filtering.
+     *
+     * @var array<string, int>
+     */
+    private const LOG_LEVEL_PRIORITIES = [
+        LogLevel::DEBUG => 0,
+        LogLevel::INFO => 1,
+        LogLevel::NOTICE => 2,
+        LogLevel::WARNING => 3,
+        LogLevel::ERROR => 4,
+        LogLevel::CRITICAL => 5,
+        LogLevel::ALERT => 6,
+        LogLevel::EMERGENCY => 7,
     ];
 
     /**
@@ -64,35 +89,81 @@ class Logger implements LoggerInterface
     private ?string $wonologNamespace = null;
 
     /**
-     * Initialize logger with configuration.
+     * Initialize logger with configuration and environment integration.
      *
      * @param array<string, mixed> $config Configuration array with the following options:
-     *                                     - plugin_name: string (required) - Unique identifier for your plugin/theme
+     *                                     - plugin_name: string - Unique identifier (can come from LOGGER_PLUGIN_NAME env var)
      *                                     - log_retention_days: int (default: 30) - Days to keep log files
      *                                     - wonolog_namespace: string (default: 'Inpsyde\Wonolog') - Wonolog namespace
+     *                                     - min_log_level: string (default: 'debug') - Minimum log level to record
      *                                     - disable_logging_constant: string - WordPress constant name to disable logging
      *                                     - log_retention_constant: string - WordPress constant name for retention days
      *
-     * @throws \InvalidArgumentException When plugin_name is missing or empty
+     * @throws \InvalidArgumentException When plugin_name is missing from both config and environment
      */
     public function __construct(array $config = [])
     {
-        // Validate required configuration BEFORE merging with defaults
-        $pluginName = $config['plugin_name'] ?? null;
+        // Get plugin name from config or environment
+        $pluginName = $config['plugin_name'] ?? Environment::get('LOGGER_PLUGIN_NAME');
+
         if (!$pluginName || !\is_string($pluginName) || '' === trim($pluginName)) {
-            throw new \InvalidArgumentException('plugin_name is required in configuration');
+            throw new \InvalidArgumentException('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
         }
 
-        $this->config = array_merge(self::DEFAULT_CONFIG, $config);
+        // Build final configuration with correct priority order:
+        // 1. Default values (lowest priority)
+        $finalConfig = self::DEFAULT_CONFIG;
+        $finalConfig['plugin_name'] = $pluginName;
+
+        // 2. Configuration array
+        $finalConfig = array_merge($finalConfig, $config);
+
+        // 3. WordPress constants
+        $retentionConstant = $this->generateConstantName($pluginName, 'LOG_RETENTION_DAYS');
+        if (\defined($retentionConstant)) {
+            $days = \constant($retentionConstant);
+            if (\is_int($days) && $days > 0) {
+                $finalConfig['log_retention_days'] = $days;
+            }
+        }
+
+        // 4. Global environment variables (higher priority than constants)
+        $globalRetention = Environment::getInt('LOGGER_RETENTION_DAYS');
+        if ($globalRetention > 0) {
+            $finalConfig['log_retention_days'] = $globalRetention;
+        }
+
+        $globalMinLevel = Environment::get('LOGGER_MIN_LEVEL');
+        if ($globalMinLevel) {
+            $finalConfig['min_log_level'] = $globalMinLevel;
+        }
+
+        $globalWonolog = Environment::get('LOGGER_WONOLOG_NAMESPACE');
+        if ($globalWonolog) {
+            $finalConfig['wonolog_namespace'] = $globalWonolog;
+        }
+
+        // 5. Plugin-specific environment variables (highest priority)
+        $pluginRetention = Environment::getInt($this->generateEnvKey($pluginName, 'LOG_RETENTION_DAYS'));
+        if ($pluginRetention > 0) {
+            $finalConfig['log_retention_days'] = $pluginRetention;
+        }
+
+        $pluginMinLevel = Environment::get($this->generateEnvKey($pluginName, 'MIN_LEVEL'));
+        if ($pluginMinLevel) {
+            $finalConfig['min_log_level'] = $pluginMinLevel;
+        }
 
         // Auto-generate constant names if not provided
-        if (!$this->config['disable_logging_constant']) {
-            $this->config['disable_logging_constant'] = $this->generateConstantName($this->config['plugin_name'], 'DISABLE_LOGGING');
+        if (!$finalConfig['disable_logging_constant']) {
+            $finalConfig['disable_logging_constant'] = $this->generateConstantName($pluginName, 'DISABLE_LOGGING');
         }
 
-        if (!$this->config['log_retention_constant']) {
-            $this->config['log_retention_constant'] = $this->generateConstantName($this->config['plugin_name'], 'LOG_RETENTION_DAYS');
+        if (!$finalConfig['log_retention_constant']) {
+            $finalConfig['log_retention_constant'] = $retentionConstant;
         }
+
+        $this->config = $finalConfig;
     }
 
     /**
@@ -171,7 +242,7 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Logs with an arbitrary level.
+     * Logs with an arbitrary level with environment-aware behavior.
      *
      * @param mixed                $level
      * @param array<string, mixed> $context
@@ -180,6 +251,11 @@ class Logger implements LoggerInterface
      */
     public function log($level, string|\Stringable $message, array $context = []): void
     {
+        // Check if this log level should be recorded
+        if (!$this->shouldLog($level)) {
+            return;
+        }
+
         // Allow hook to override entire logging behavior
         if (\function_exists('apply_filters')) {
             $overrideResult = apply_filters('wp_logger_override_log', null, $level, $message, $context, $this->config);
@@ -229,7 +305,7 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Get debug information for troubleshooting.
+     * Get comprehensive debug information including environment details.
      *
      * @return array<string, mixed>
      */
@@ -238,20 +314,99 @@ class Logger implements LoggerInterface
         $retentionDays = $this->getLogRetentionDays();
 
         return [
+            // Basic configuration
             'plugin_name' => $this->config['plugin_name'],
-            'wonolog_active' => $this->isWonologActive(),
-            'wonolog_namespace' => $this->getWonologNamespace(),
+            'min_log_level' => $this->config['min_log_level'],
             'log_retention_days' => $retentionDays,
             'disable_constant' => $this->config['disable_logging_constant'],
             'retention_constant' => $this->config['log_retention_constant'],
-            'wp_debug' => \defined('WP_DEBUG') && WP_DEBUG, // @phpstan-ignore-line
+
+            // Environment information
+            'environment_type' => Environment::getEnvironment(),
+            'is_debug' => Environment::isDebug(),
+            'is_development' => Environment::isDevelopment(),
+            'is_staging' => Environment::isStaging(),
+            'is_production' => Environment::isProduction(),
+            'is_container' => Environment::isContainer(),
+            'server_software' => Environment::getServerSoftware(),
+            'php_sapi' => Environment::getPhpSapi(),
+            'is_cli' => Environment::isCli(),
+            'is_web' => Environment::isWeb(),
+
+            // Logging state
+            'wonolog_active' => $this->isWonologActive(),
+            'wonolog_namespace' => $this->getWonologNamespace(),
             'logging_disabled' => $this->isLoggingDisabled(),
             'log_directory' => $this->getLogDirectory(),
+
+            // WordPress integration
+            'wp_debug' => Environment::getBool('WP_DEBUG', false),
+            'wp_multisite' => Environment::isMultisite(),
+
+            // Constants status
             'constants_defined' => [
                 $this->config['disable_logging_constant'] => \defined($this->config['disable_logging_constant']),
                 $this->config['log_retention_constant'] => \defined($this->config['log_retention_constant']),
             ],
         ];
+    }
+
+    /**
+     * Check if message should be logged based on minimum level configuration.
+     */
+    private function shouldLog(string $level): bool
+    {
+        // Check minimum log level configuration
+        $minLevel = $this->config['min_log_level'];
+        $minPriority = self::LOG_LEVEL_PRIORITIES[$minLevel] ?? 0;
+        $currentPriority = self::LOG_LEVEL_PRIORITIES[$level] ?? 0;
+
+        return $currentPriority >= $minPriority;
+    }
+
+    /**
+     * Get string environment variable.
+     */
+    private function getEnvString(string $key): ?string
+    {
+        // Check if we're in test environment by looking for mock globals
+        global $mock_environment_vars;
+        if (isset($mock_environment_vars) && \is_array($mock_environment_vars)) {
+            return $mock_environment_vars[$key] ?? null;
+        }
+
+        // Use WpEnv Environment in production
+        if (class_exists(Environment::class)) {
+            return Environment::get($key);
+        }
+
+        // Fallback to native getenv
+        $value = getenv($key);
+
+        return false === $value ? null : $value;
+    }
+
+    /**
+     * Get boolean environment variable.
+     */
+    private function getEnvBool(string $key, bool $default = false): bool
+    {
+        $value = $this->getEnvString($key);
+        if (null === $value) {
+            return $default;
+        }
+
+        return \in_array(strtolower($value), ['true', '1', 'yes', 'on'], true);
+    }
+
+    /**
+     * Generate plugin-specific environment variable key.
+     */
+    private function generateEnvKey(string $pluginName, string $key): string
+    {
+        $pluginPrefix = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '_', $pluginName) ?? $pluginName);
+
+        return \sprintf('%s_%s', $pluginPrefix, $key);
     }
 
     /**
@@ -265,9 +420,7 @@ class Logger implements LoggerInterface
             $constantBase = $pluginName;
         }
 
-        $constantBase = strtoupper($constantBase);
-
-        return $constantBase.'_'.$suffix;
+        return strtoupper($constantBase).'_'.$suffix;
     }
 
     /**
@@ -330,7 +483,7 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Fallback logging when Wonolog is not available.
+     * Fallback logging when Wonolog is not available with environment-aware behavior.
      *
      * @param array<string, mixed> $context
      */
@@ -343,8 +496,7 @@ class Logger implements LoggerInterface
         }
 
         // If debug is enabled, always use error_log (developer environment)
-        // Note: In test environment WP_DEBUG is typically false, but in real WordPress it can be true
-        if (\defined('WP_DEBUG') && true === WP_DEBUG) { // @phpstan-ignore-line
+        if (Environment::isDebug() || Environment::isDevelopment()) {
             $this->logToErrorLog($level, $message, $context);
 
             return;
@@ -360,28 +512,32 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Check if logging is disabled via WordPress constant.
+     * Check if logging is disabled via environment variables or WordPress constants.
      */
     private function isLoggingDisabled(): bool
     {
+        // Check global environment variable first
+        if ($this->getEnvBool('LOGGER_DISABLED')) {
+            return true;
+        }
+
+        // Check plugin-specific environment variable
+        $pluginEnvKey = $this->generateEnvKey($this->config['plugin_name'], 'DISABLED');
+        if ($this->getEnvBool($pluginEnvKey)) {
+            return true;
+        }
+
+        // Fallback to WordPress constant
         $constantName = $this->config['disable_logging_constant'];
 
         return \defined($constantName) && \constant($constantName);
     }
 
     /**
-     * Get log retention days from configuration or WordPress constant.
+     * Get log retention days from configuration (already processed with correct priority).
      */
     private function getLogRetentionDays(): int
     {
-        $constantName = $this->config['log_retention_constant'];
-
-        if (\defined($constantName)) {
-            $days = \constant($constantName);
-
-            return \is_int($days) && $days > 0 ? $days : $this->config['log_retention_days'];
-        }
-
         return $this->config['log_retention_days'];
     }
 
@@ -468,9 +624,12 @@ class Logger implements LoggerInterface
         $logFile = $logDir.'/'.gmdate('Y-m-d').'_'.substr(md5($this->config['plugin_name']), 0, 8).'.dat';
 
         $timestamp = gmdate('Y-m-d H:i:s');
+        $environmentInfo = Environment::isProduction() ? '' : ' ['.Environment::getEnvironment().']';
+
         $logEntry = \sprintf(
-            "[%s] %s: %s\n",
+            "[%s]%s %s: %s\n",
             $timestamp,
+            $environmentInfo,
             strtoupper($level),
             $this->formatMessage($message)
         );
@@ -495,14 +654,17 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Traditional error_log (only when WP_DEBUG is enabled).
+     * Traditional error_log (used in development/debug mode).
      *
      * @param array<string, mixed> $context
      */
     private function logToErrorLog(string $level, string|\Stringable $message, array $context): void
     {
+        $environmentInfo = '['.Environment::getEnvironment().']';
+
         $logEntry = \sprintf(
-            '[%s] [%s] %s',
+            '%s [%s] [%s] %s',
+            $environmentInfo,
             $this->config['plugin_name'],
             strtoupper($level),
             $this->formatMessage($message)
@@ -585,19 +747,20 @@ class Logger implements LoggerInterface
         $webconfigContent .= "</configuration>\n";
         file_put_contents($logDir.'/web.config', $webconfigContent);
 
-        // Server configuration guide
+        // Server configuration guide with environment info
         $serverConfig = $this->generateReadme($pluginFolder);
         file_put_contents($logDir.'/README', $serverConfig);
     }
 
     /**
-     * Generate complete server configuration guide.
+     * Generate complete server configuration guide with environment information.
      */
     private function generateReadme(string $pluginFolder): string
     {
         $retentionDays = $this->getLogRetentionDays();
         $disableConstant = $this->config['disable_logging_constant'];
         $retentionConstant = $this->config['log_retention_constant'];
+        $pluginEnvPrefix = $this->generateEnvKey($this->config['plugin_name'], '');
 
         $config = "# LOG DIRECTORY PROTECTION CONFIGURATION\n";
         $config .= "# ========================================\n\n";
@@ -615,18 +778,34 @@ class Logger implements LoggerInterface
         $config .= "# Already protected via .htaccess file (automatic)\n\n";
 
         $config .= "## LOGGING CONTROL\n";
-        $config .= "You can control plugin logging behavior via wp-config.php:\n\n";
+        $config .= "You can control plugin logging behavior via environment variables or wp-config.php:\n\n";
+
+        $config .= "# Environment Variables (recommended):\n";
+        $config .= "# Global logger settings:\n";
+        $config .= "LOGGER_DISABLED=false\n";
+        $config .= \sprintf('LOGGER_RETENTION_DAYS=%d%s', $retentionDays, PHP_EOL);
+        $config .= "LOGGER_MIN_LEVEL=info\n\n";
+
+        $config .= "# Plugin-specific settings (higher priority):\n";
+        $config .= $pluginEnvPrefix.'DISABLED=false
+';
+        $config .= "{$pluginEnvPrefix}LOG_RETENTION_DAYS={$retentionDays}\n\n";
+
+        $config .= "# WordPress Constants (wp-config.php):\n";
         $config .= "# Enable debug logging (uses error_log):\n";
-        $config .= "define('WP_DEBUG', true);\n\n";
-        $config .= "# Disable all plugin logging (production optimization):\n";
+        $config .= "define('WP_DEBUG', true);\n";
+        $config .= "define('WP_ENVIRONMENT_TYPE', 'development'); // or 'staging', 'production'\n\n";
+        $config .= "# Disable all plugin logging:\n";
         $config .= "define('{$disableConstant}', true);\n\n";
-        $config .= "# Customize log retention period (default: {$retentionDays} days):\n";
+        $config .= "# Customize log retention period:\n";
         $config .= "define('{$retentionConstant}', {$retentionDays});\n\n";
 
         $config .= 'Generated: '.gmdate('Y-m-d H:i:s')." UTC\n";
         $config .= 'Plugin: '.$this->config['plugin_name']."\n";
+        $config .= 'Environment: '.Environment::getEnvironment()."\n";
+        $config .= "Log retention: {$retentionDays} days\n";
 
-        return $config."Log retention: {$retentionDays} days\n";
+        return $config.('Min log level: '.$this->config['min_log_level']."\n");
     }
 
     /**
