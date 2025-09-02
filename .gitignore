@@ -2,3 +2,4 @@
 .psalm/
 vendor/
 composer.lock
+composer.develop.*

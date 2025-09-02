@@ -1,6 +1,6 @@
 {
     "name": "wp-spaghetti/wp-logger",
-    "description": "A comprehensive WordPress logging service with Wonolog integration, secure file logging, and multi-server protection",
+    "description": "A comprehensive WordPress logging service with Wonolog integration, secure file logging, multi-server protection, and environment-based configuration",
     "license": "GPL-3.0-or-later",
     "type": "library",
     "keywords": [
@@ -8,9 +8,7 @@
         "logger",
         "logging",
         "wonolog",
-        "psr-3",
-        "security",
-        "fallback"
+        "psr-3"
     ],
     "authors": [
         {
@@ -22,7 +20,8 @@
     "homepage": "https://github.com/wp-spaghetti/wp-logger",
     "require": {
         "php": ">=8.0",
-        "psr/log": "^2.0|^3.0"
+        "psr/log": "^2.0|^3.0",
+        "wp-spaghetti/wp-env": "^2.0"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.86",
@@ -58,13 +57,13 @@
         "sort-packages": true
     },
     "scripts": {
-        "test-coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml",
-        "code-quality": "grumphp run --tasks=phpmnd,phpparser",
-        "grumphp": "grumphp run",
+        "analysis": "grumphp run --tasks=phpstan",
+        "check": "grumphp run",
+        "ci": "grumphp run --no-interaction",
+        "coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml",
         "lint": "grumphp run --tasks=phpcsfixer,phplint,phpstan,rector",
-        "qa": "grumphp run --no-interaction",
+        "quality": "grumphp run --tasks=phpmnd,phpparser",
         "security": "grumphp run --tasks=securitychecker_roave",
-        "static-analysis": "grumphp run --tasks=phpstan",
         "test": "grumphp run --tasks=phpunit"
     }
 }
