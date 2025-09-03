@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We actively support the following versions of WP Env with security updates:
+We actively support the following versions with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
