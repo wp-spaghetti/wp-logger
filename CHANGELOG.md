@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0](https://github.com/wp-spaghetti/wp-logger/compare/v2.0.1...v2.1.0) (2025-09-03)
+
+### Features
+
+* add support to psr/log:^1.x for inpsyde/wonolog:^2.x compatibility ([#18](https://github.com/wp-spaghetti/wp-logger/issues/18)) ([#19](https://github.com/wp-spaghetti/wp-logger/issues/19)) ([48a249b](https://github.com/wp-spaghetti/wp-logger/commit/48a249b2b5988f9e6509985fada41760bb59423c))
+
 ## [2.0.1](https://github.com/wp-spaghetti/wp-logger/compare/v2.0.0...v2.0.1) (2025-09-03)
 
 ### Performance Improvements
