@@ -1,6 +1,10 @@
-# Contributing to WP Env
+# Contributing
 
-Thank you for considering contributing to WP Env! This document outlines the process for contributing to this project.
+Thank you for considering contributing! This document outlines the process for contributing to this project.
+
+When contributing to this repository, please first discuss the change you wish to make via issue, email, or any other method with the owners of this repository before making a change.
+
+Please note we have a [code of conduct](CODE_OF_CONDUCT.md), please follow it in all your interactions with the project.
 
 ## Development Workflow
 
@@ -54,13 +58,13 @@ vendor/bin/phpunit --coverage-html coverage/
 ### Code Quality
 ```bash
 # Run all quality checks
-composer qa
+composer quality
 
 # Individual tools
-composer lint          # PHP CS Fixer + PHPStan + Rector
-composer static-analysis  # PHPStan only
+composer lint          # Linters
+composer analysis      # Static analysis
 composer security      # Security check
-composer code-quality  # PHPMND + PHP Parser
+composer quality       # Code quality
 ```
 
 ## Coding Standards
@@ -105,7 +109,7 @@ test(hooks): add comprehensive hook testing
 
 declare(strict_types=1);
 
-namespace WpSpaghetti\WpEnv;
+namespace WpSpaghetti\ExampleNamespace;
 
 /**
  * Class documentation.
@@ -135,16 +139,14 @@ class ExampleClass
 ```php
 public function testMethodReturnsExpectedValue(): void
 {
-    $result = Environment::get('TEST_VAR', 'default');
+    $result = ExampleClass::get('TEST_VAR', 'default');
     self::assertSame('expected', $result);
 }
 ```
 
 ### Mock Data
 Use the provided mock functions for testing:
-- `set_mock_constant()`
-- `set_mock_env_var()`
-- `set_mock_file()`
+- `set_mock_*()`
 
 ## Documentation
 
@@ -175,8 +177,8 @@ When adding new features:
 
 3. **Test Your Changes**
    ```bash
-   composer qa  # Run all quality checks
-   composer test  # Run all tests
+   composer quality  # Run all quality checks
+   composer test     # Run all tests
    ```
 
 4. **Commit Changes**
