@@ -570,7 +570,7 @@ var_dump($debugInfo);
 
 - PHP 8.0 or higher
 - WordPress 5.0 or higher
-- PSR Log 2.0|3.0 for interface compatibility
+- PSR Log 1.0|2.0|3.0 for interface compatibility
 - [WP Env](https://github.com/wp-spaghetti/wp-env) 2.0+ for environment management
 - Optional: [Inpsyde Wonolog](https://github.com/inpsyde/wonolog) for advanced logging
 
