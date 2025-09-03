@@ -42,6 +42,16 @@ class Logger implements LoggerInterface
     private const DEFAULT_LOG_RETENTION_DAYS = 30;
 
     /**
+     * Cleanup probability (1 in N chance).
+     */
+    private const CLEANUP_PROBABILITY = 100;
+
+    /**
+     * Log file hash length.
+     */
+    private const LOG_FILE_HASH_LENGTH = 8;
+
+    /**
      * Default configuration values.
      *
      * @var array<string, mixed>
@@ -89,6 +99,11 @@ class Logger implements LoggerInterface
     private ?string $wonologNamespace = null;
 
     /**
+     * Cache for log directory path.
+     */
+    private ?string $logDirectoryCache = null;
+
+    /**
      * Initialize logger with configuration and environment integration.
      *
      * @param array<string, mixed> $config Configuration array with the following options:
@@ -110,60 +125,8 @@ class Logger implements LoggerInterface
             throw new \InvalidArgumentException('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
         }
 
-        // Build final configuration with correct priority order:
-        // 1. Default values (lowest priority)
-        $finalConfig = self::DEFAULT_CONFIG;
-        $finalConfig['plugin_name'] = $pluginName;
-
-        // 2. Configuration array
-        $finalConfig = array_merge($finalConfig, $config);
-
-        // 3. WordPress constants
-        $retentionConstant = $this->generateConstantName($pluginName, 'LOG_RETENTION_DAYS');
-        if (\defined($retentionConstant)) {
-            $days = \constant($retentionConstant);
-            if (\is_int($days) && $days > 0) {
-                $finalConfig['log_retention_days'] = $days;
-            }
-        }
-
-        // 4. Global environment variables (higher priority than constants)
-        $globalRetention = Environment::getInt('LOGGER_RETENTION_DAYS');
-        if ($globalRetention > 0) {
-            $finalConfig['log_retention_days'] = $globalRetention;
-        }
-
-        $globalMinLevel = Environment::get('LOGGER_MIN_LEVEL');
-        if ($globalMinLevel) {
-            $finalConfig['min_log_level'] = $globalMinLevel;
-        }
-
-        $globalWonolog = Environment::get('LOGGER_WONOLOG_NAMESPACE');
-        if ($globalWonolog) {
-            $finalConfig['wonolog_namespace'] = $globalWonolog;
-        }
-
-        // 5. Plugin-specific environment variables (highest priority)
-        $pluginRetention = Environment::getInt($this->generateEnvKey($pluginName, 'LOG_RETENTION_DAYS'));
-        if ($pluginRetention > 0) {
-            $finalConfig['log_retention_days'] = $pluginRetention;
-        }
-
-        $pluginMinLevel = Environment::get($this->generateEnvKey($pluginName, 'MIN_LEVEL'));
-        if ($pluginMinLevel) {
-            $finalConfig['min_log_level'] = $pluginMinLevel;
-        }
-
-        // Auto-generate constant names if not provided
-        if (!$finalConfig['disable_logging_constant']) {
-            $finalConfig['disable_logging_constant'] = $this->generateConstantName($pluginName, 'DISABLE_LOGGING');
-        }
-
-        if (!$finalConfig['log_retention_constant']) {
-            $finalConfig['log_retention_constant'] = $retentionConstant;
-        }
-
-        $this->config = $finalConfig;
+        // Build configuration with priority: Plugin-specific env > Global env > Constants > Config array > Defaults
+        $this->config = $this->buildConfiguration($pluginName, $config);
     }
 
     /**
@@ -352,51 +315,99 @@ class Logger implements LoggerInterface
     }
 
     /**
+     * Build final configuration with correct priority order.
+     *
+     * @param array<string, mixed> $config
+     *
+     * @return array<string, mixed>
+     */
+    private function buildConfiguration(string $pluginName, array $config): array
+    {
+        // Start with defaults
+        $finalConfig = self::DEFAULT_CONFIG;
+        $finalConfig['plugin_name'] = $pluginName;
+
+        // Merge configuration array
+        $finalConfig = array_merge($finalConfig, $config);
+
+        // Apply environment-based overrides
+        $this->applyEnvironmentOverrides($finalConfig, $pluginName);
+
+        // Auto-generate constant names if not provided
+        $this->generateMissingConstants($finalConfig, $pluginName);
+
+        return $finalConfig;
+    }
+
+    /**
+     * Apply environment variable overrides with correct priority.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function applyEnvironmentOverrides(array &$config, string $pluginName): void
+    {
+        // WordPress constants
+        $retentionConstant = $this->generateConstantName($pluginName, 'LOG_RETENTION_DAYS');
+        if (\defined($retentionConstant)) {
+            $days = \constant($retentionConstant);
+            if (\is_int($days) && $days > 0) {
+                $config['log_retention_days'] = $days;
+            }
+        }
+
+        // Global environment variables (higher priority)
+        $globalRetention = Environment::getInt('LOGGER_RETENTION_DAYS');
+        if ($globalRetention > 0) {
+            $config['log_retention_days'] = $globalRetention;
+        }
+
+        $globalMinLevel = Environment::get('LOGGER_MIN_LEVEL');
+        if ($globalMinLevel) {
+            $config['min_log_level'] = $globalMinLevel;
+        }
+
+        $globalWonolog = Environment::get('LOGGER_WONOLOG_NAMESPACE');
+        if ($globalWonolog) {
+            $config['wonolog_namespace'] = $globalWonolog;
+        }
+
+        // Plugin-specific environment variables (highest priority)
+        $pluginRetention = Environment::getInt($this->generateEnvKey($pluginName, 'LOG_RETENTION_DAYS'));
+        if ($pluginRetention > 0) {
+            $config['log_retention_days'] = $pluginRetention;
+        }
+
+        $pluginMinLevel = Environment::get($this->generateEnvKey($pluginName, 'MIN_LEVEL'));
+        if ($pluginMinLevel) {
+            $config['min_log_level'] = $pluginMinLevel;
+        }
+    }
+
+    /**
+     * Generate missing constant names.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function generateMissingConstants(array &$config, string $pluginName): void
+    {
+        if (!$config['disable_logging_constant']) {
+            $config['disable_logging_constant'] = $this->generateConstantName($pluginName, 'DISABLE_LOGGING');
+        }
+
+        if (!$config['log_retention_constant']) {
+            $config['log_retention_constant'] = $this->generateConstantName($pluginName, 'LOG_RETENTION_DAYS');
+        }
+    }
+
+    /**
      * Check if message should be logged based on minimum level configuration.
      */
     private function shouldLog(string $level): bool
     {
-        // Check minimum log level configuration
-        $minLevel = $this->config['min_log_level'];
-        $minPriority = self::LOG_LEVEL_PRIORITIES[$minLevel] ?? 0;
+        $minPriority = self::LOG_LEVEL_PRIORITIES[$this->config['min_log_level']] ?? 0;
         $currentPriority = self::LOG_LEVEL_PRIORITIES[$level] ?? 0;
 
         return $currentPriority >= $minPriority;
-    }
-
-    /**
-     * Get string environment variable.
-     */
-    private function getEnvString(string $key): ?string
-    {
-        // Check if we're in test environment by looking for mock globals
-        global $mock_environment_vars;
-        if (isset($mock_environment_vars) && \is_array($mock_environment_vars)) {
-            return $mock_environment_vars[$key] ?? null;
-        }
-
-        // Use WpEnv Environment in production
-        if (class_exists(Environment::class)) {
-            return Environment::get($key);
-        }
-
-        // Fallback to native getenv
-        $value = getenv($key);
-
-        return false === $value ? null : $value;
-    }
-
-    /**
-     * Get boolean environment variable.
-     */
-    private function getEnvBool(string $key, bool $default = false): bool
-    {
-        $value = $this->getEnvString($key);
-        if (null === $value) {
-            return $default;
-        }
-
-        return \in_array(strtolower($value), ['true', '1', 'yes', 'on'], true);
     }
 
     /**
@@ -517,13 +528,13 @@ class Logger implements LoggerInterface
     private function isLoggingDisabled(): bool
     {
         // Check global environment variable first
-        if ($this->getEnvBool('LOGGER_DISABLED')) {
+        if (Environment::getBool('LOGGER_DISABLED')) {
             return true;
         }
 
         // Check plugin-specific environment variable
         $pluginEnvKey = $this->generateEnvKey($this->config['plugin_name'], 'DISABLED');
-        if ($this->getEnvBool($pluginEnvKey)) {
+        if (Environment::getBool($pluginEnvKey)) {
             return true;
         }
 
@@ -586,17 +597,20 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Get log directory path.
+     * Get log directory path with caching.
      */
     private function getLogDirectory(): string
     {
-        if (!\function_exists('wp_upload_dir')) {
-            return '';
+        if (null === $this->logDirectoryCache) {
+            if (!\function_exists('wp_upload_dir')) {
+                $this->logDirectoryCache = '';
+            } else {
+                $uploadDir = wp_upload_dir();
+                $this->logDirectoryCache = $uploadDir['basedir'].'/'.$this->config['plugin_name'].'/logs';
+            }
         }
 
-        $uploadDir = wp_upload_dir();
-
-        return $uploadDir['basedir'].'/'.$this->config['plugin_name'].'/logs';
+        return $this->logDirectoryCache;
     }
 
     /**
@@ -610,19 +624,42 @@ class Logger implements LoggerInterface
             return;
         }
 
-        $uploadDir = wp_upload_dir();
-        $pluginDir = $uploadDir['basedir'].'/'.$this->config['plugin_name'];
-        $logDir = $pluginDir.'/logs';
+        $logDir = $this->getLogDirectory();
 
-        // Create directory structure if it doesn't exist
+        // Create directory structure if needed
         if (!file_exists($logDir)) {
-            wp_mkdir_p($logDir);
-            $this->createProtectionFiles($pluginDir, $logDir);
+            $this->createLogDirectoryStructure($logDir);
         }
 
-        // Use date-based filename with plugin hash for security
-        $logFile = $logDir.'/'.gmdate('Y-m-d').'_'.substr(md5($this->config['plugin_name']), 0, 8).'.dat';
+        // Generate and write log entry
+        $logEntry = $this->formatLogEntry($level, $message, $context);
+        $this->writeLogEntry($logDir, $logEntry);
 
+        // Probabilistic cleanup
+        $this->maybeCleanupLogs($logDir);
+    }
+
+    /**
+     * Create log directory structure with protection files.
+     */
+    private function createLogDirectoryStructure(string $logDir): void
+    {
+        $pluginDir = \dirname($logDir);
+
+        if (!wp_mkdir_p($logDir)) {
+            return;
+        }
+
+        $this->createProtectionFiles($pluginDir, $logDir);
+    }
+
+    /**
+     * Format log entry for consistent output.
+     *
+     * @param array<string, mixed> $context
+     */
+    private function formatLogEntry(string $level, string|\Stringable $message, array $context): string
+    {
         $timestamp = gmdate('Y-m-d H:i:s');
         $environmentInfo = Environment::isProduction() ? '' : ' ['.Environment::getEnvironment().']';
 
@@ -635,20 +672,43 @@ class Logger implements LoggerInterface
         );
 
         if (!empty($context)) {
-            if (\function_exists('wp_json_encode')) {
-                $logEntry .= 'Context: '.wp_json_encode($context)."\n";
-            } else {
-                $logEntry .= 'Context: '.json_encode($context)."\n";
-            }
+            $contextJson = \function_exists('wp_json_encode')
+                ? wp_json_encode($context)
+                : json_encode($context);
+            $logEntry .= 'Context: '.$contextJson."\n";
         }
 
-        $logEntry .= "---\n";
+        return $logEntry."---\n";
+    }
 
-        // Append to log file with proper file locking
+    /**
+     * Write log entry to file atomically.
+     */
+    private function writeLogEntry(string $logDir, string $logEntry): void
+    {
+        $logFile = $this->getLogFilePath($logDir);
+
+        // Use file_put_contents with LOCK_EX for atomic writes
         file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
+    }
 
-        // Simple cleanup: delete files older than retention period (run randomly 1% of the time)
-        if (\function_exists('wp_rand') && 1 === wp_rand(1, 100)) {
+    /**
+     * Get log file path with date and hash.
+     */
+    private function getLogFilePath(string $logDir): string
+    {
+        $datePrefix = gmdate('Y-m-d');
+        $hash = substr(md5($this->config['plugin_name']), 0, self::LOG_FILE_HASH_LENGTH);
+
+        return $logDir.'/'.$datePrefix.'_'.$hash.'.dat';
+    }
+
+    /**
+     * Maybe cleanup old log files (probabilistic).
+     */
+    private function maybeCleanupLogs(string $logDir): void
+    {
+        if (\function_exists('wp_rand') && 1 === wp_rand(1, self::CLEANUP_PROBABILITY)) {
             $this->cleanupOldLogFiles($logDir);
         }
     }
@@ -671,11 +731,10 @@ class Logger implements LoggerInterface
         );
 
         if (!empty($context)) {
-            if (\function_exists('wp_json_encode')) {
-                $logEntry .= ' | Context: '.wp_json_encode($context);
-            } else {
-                $logEntry .= ' | Context: '.json_encode($context);
-            }
+            $contextJson = \function_exists('wp_json_encode')
+                ? wp_json_encode($context)
+                : json_encode($context);
+            $logEntry .= ' | Context: '.$contextJson;
         }
 
         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Only used in debug mode
@@ -687,6 +746,7 @@ class Logger implements LoggerInterface
      */
     private function formatMessage(string|\Stringable $message): string
     {
+        // Handle Throwable objects
         if ($message instanceof \Throwable) {
             return \sprintf(
                 '%s in %s:%d',
@@ -696,18 +756,24 @@ class Logger implements LoggerInterface
             );
         }
 
-        if (\function_exists('is_wp_error') && is_wp_error($message) && \is_object($message) && method_exists($message, 'get_error_message')) {
+        // Handle WP_Error objects
+        if (\function_exists('is_wp_error')
+            && is_wp_error($message)
+            && \is_object($message)
+            && method_exists($message, 'get_error_message')) {
             return $message->get_error_message();
         }
 
+        // Handle objects (encode as JSON)
         if (\is_object($message)) {
-            if (\function_exists('wp_json_encode')) {
-                return 'Data: '.wp_json_encode($message);
-            }
+            $json = \function_exists('wp_json_encode')
+                ? wp_json_encode($message)
+                : json_encode($message);
 
-            return 'Data: '.json_encode($message);
+            return 'Data: '.$json;
         }
 
+        // Handle stringable or string
         return $message;
     }
 
@@ -787,8 +853,7 @@ class Logger implements LoggerInterface
         $config .= "LOGGER_MIN_LEVEL=info\n\n";
 
         $config .= "# Plugin-specific settings (higher priority):\n";
-        $config .= $pluginEnvPrefix.'DISABLED=false
-';
+        $config .= $pluginEnvPrefix.'DISABLED=false'.PHP_EOL;
         $config .= "{$pluginEnvPrefix}LOG_RETENTION_DAYS={$retentionDays}\n\n";
 
         $config .= "# WordPress Constants (wp-config.php):\n";
@@ -819,20 +884,19 @@ class Logger implements LoggerInterface
 
         $retentionDays = $this->getLogRetentionDays();
         $cutoffTime = time() - ($retentionDays * DAY_IN_SECONDS);
-        $files = scandir($logDir);
 
-        if ($files) {
-            foreach ($files as $file) {
-                if (\in_array(pathinfo($file, PATHINFO_EXTENSION), ['log', 'dat'], true)) {
-                    $filePath = $logDir.'/'.$file;
-                    if (file_exists($filePath) && filemtime($filePath) < $cutoffTime) {
-                        if (\function_exists('wp_delete_file')) {
-                            wp_delete_file($filePath);
-                        } else {
-                            unlink($filePath);
-                        }
-                    }
-                }
+        // Use glob for better performance than scandir
+        $logFiles = glob($logDir.'/*.{dat,log}', GLOB_BRACE);
+
+        if (empty($logFiles)) {
+            return;
+        }
+
+        foreach ($logFiles as $logFile) {
+            if (filemtime($logFile) < $cutoffTime) {
+                \function_exists('wp_delete_file')
+                    ? wp_delete_file($logFile)
+                    : unlink($logFile);
             }
         }
     }

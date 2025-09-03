@@ -1,12 +1,12 @@
+![PHP Version](https://img.shields.io/packagist/php-v/wp-spaghetti/wp-logger)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/wp-spaghetti/wp-logger/total)
 ![GitHub Actions Workflow Status](https://github.com/wp-spaghetti/wp-logger/actions/workflows/main.yml/badge.svg)
+![Coverage Status](https://img.shields.io/codecov/c/github/wp-spaghetti/wp-logger)
 ![GitHub Issues](https://img.shields.io/github/issues/wp-spaghetti/wp-logger)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
 ![GitHub Release](https://img.shields.io/github/v/release/wp-spaghetti/wp-logger)
 ![License](https://img.shields.io/github/license/wp-spaghetti/wp-logger)
 <!--
-![PHP Version](https://img.shields.io/packagist/php-v/wp-spaghetti/wp-logger)
-![Coverage Status](https://img.shields.io/codecov/c/github/wp-spaghetti/wp-logger)
 ![Code Climate](https://img.shields.io/codeclimate/maintainability/wp-spaghetti/wp-logger)
 -->
 
@@ -571,12 +571,12 @@ var_dump($debugInfo);
 - PHP 8.0 or higher
 - WordPress 5.0 or higher
 - PSR Log 2.0|3.0 for interface compatibility
-- WP Env 2.0+ for environment management
+- [WP Env](https://github.com/wp-spaghetti/wp-env) 2.0+ for environment management
 - Optional: [Inpsyde Wonolog](https://github.com/inpsyde/wonolog) for advanced logging
 
 ## Changelog
 
-Please see [CHANGELOG.md](CHANGELOG.md) for a detailed list of changes for each release.
+Please see [CHANGELOG](CHANGELOG.md) for a detailed list of changes for each release.
 
 We follow [Semantic Versioning](https://semver.org/) and use [Conventional Commits](https://www.conventionalcommits.org/) to automatically generate our changelog.
 
@@ -596,6 +596,8 @@ For your contributions please use:
 - [git-flow workflow](https://danielkummer.github.io/git-flow-cheatsheet/)
 - [Pull request workflow](https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project)
 
+See [CONTRIBUTING](.github/CONTRIBUTING.md) for detailed guidelines.
+
 ## Sponsor
 
 [<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="200" alt="Buy Me A Coffee">](https://buymeacoff.ee/frugan)
@@ -604,4 +606,3 @@ For your contributions please use:
 
 (ɔ) Copyleft 2025 [Frugan](https://frugan.it).  
 [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/), see [LICENSE](LICENSE) file.
-

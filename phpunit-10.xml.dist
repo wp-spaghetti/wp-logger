@@ -8,7 +8,7 @@
          failOnRisky="true"
          failOnWarning="true">
     <testsuites>
-        <testsuite name="WpEnv">
+        <testsuite name="WpLogger">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
