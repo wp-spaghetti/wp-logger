@@ -25,7 +25,7 @@ if (!defined('WP_ENV')) {
 }
 
 if (!defined('WP_ENVIRONMENT_TYPE')) {
-    define('WP_ENVIRONMENT_TYPE', 'development');
+    define('WP_ENVIRONMENT_TYPE', 'testing');
 }
 
 if (!defined('DAY_IN_SECONDS')) {

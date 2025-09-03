@@ -45,7 +45,7 @@ composer install
 composer test
 
 # Run specific test suite
-vendor/bin/phpunit tests/EnvironmentTest.php
+vendor/bin/phpunit tests/FooTest.php
 
 # Run with coverage
 vendor/bin/phpunit --coverage-html coverage/

@@ -62,7 +62,7 @@ jobs:
 
       - name: Run tests with coverage
         if: matrix.php == '8.4'
-        run: vendor/bin/phpunit --coverage-clover=coverage.xml
+        run: composer test-coverage
       
       - name: Upload coverage to Codecov
         if: matrix.php == '8.4'

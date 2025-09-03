@@ -15,7 +15,7 @@
         </include>
     </coverage>
     <testsuites>
-        <testsuite name="WpEnv">
+        <testsuite name="WpLogger">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
