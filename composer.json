@@ -14,10 +14,16 @@
         {
             "name": "Frugan",
             "email": "dev@frugan.it",
-            "homepage": "https://github.com/wp-spaghetti"
+            "homepage": "https://github.com/frugan-dev",
+            "role": "Developer"
         }
     ],
     "homepage": "https://github.com/wp-spaghetti/wp-logger",
+    "support": {
+        "issues": "https://github.com/wp-spaghetti/wp-logger/issues",
+        "source": "https://github.com/wp-spaghetti/wp-logger",
+        "docs": "https://github.com/wp-spaghetti/wp-logger#readme"
+    },
     "require": {
         "php": ">=8.0",
         "psr/log": "^2.0|^3.0",
@@ -36,7 +42,7 @@
         "vimeo/psalm": "^5.26|^6.13"
     },
     "suggest": {
-        "inpsyde/wonolog": "For advanced WordPress logging with PSR-3 compatibility"
+        "inpsyde/wonolog": "For advanced WordPress logging with PSR-3 compatibility and Monolog integration"
     },
     "autoload": {
         "psr-4": {
@@ -60,10 +66,16 @@
         "analysis": "grumphp run --tasks=phpstan",
         "check": "grumphp run",
         "ci": "grumphp run --no-interaction",
-        "coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml",
         "lint": "grumphp run --tasks=phpcsfixer,phplint,phpstan,rector",
         "quality": "grumphp run --tasks=phpmnd,phpparser",
         "security": "grumphp run --tasks=securitychecker_roave",
-        "test": "grumphp run --tasks=phpunit"
-    }
+        "test": "grumphp run --tasks=phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml"
+    },
+    "funding": [
+        {
+            "type": "custom",
+            "url": "https://buymeacoff.ee/frugan"
+        }
+    ]
 }

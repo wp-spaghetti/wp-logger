@@ -6,7 +6,7 @@ We actively support the following versions of WP Env with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.x.x   | :white_check_mark: |
+| 2.x.x   | :white_check_mark: |
 
 ## Reporting a Vulnerability
 
@@ -68,7 +68,7 @@ WP Env includes several security features:
 
 For security-related questions or concerns:
 - Email: dev@frugan.it
-- GitHub: [@wp-spaghetti](https://github.com/wp-spaghetti)
+- GitHub: [@frugan-dev](https://github.com/frugan-dev)
 
 ## Acknowledgments
 
