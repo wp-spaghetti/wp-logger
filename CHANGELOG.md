@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2](https://github.com/wp-spaghetti/wp-logger/compare/v2.1.1...v2.1.2) (2025-09-05)
+
+### Bug Fixes
+
+* $message param accepts any type (Throwable, WP_Error, string, array, object) ([#21](https://github.com/wp-spaghetti/wp-logger/issues/21)) ([5e940bf](https://github.com/wp-spaghetti/wp-logger/commit/5e940bfd71d4ad63088f5773a9d6592ecc8edff5))
+
 ## [2.1.1](https://github.com/wp-spaghetti/wp-logger/compare/v2.1.0...v2.1.1) (2025-09-04)
 
 ### Bug Fixes
