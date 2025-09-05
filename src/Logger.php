@@ -540,7 +540,19 @@ class Logger implements LoggerInterface
         }
 
         if (\function_exists('do_action')) {
-            do_action($actionName, $message, $context);
+            // BUGFIX: Wonolog v2.x/v3.x PSR-3 placeholder substitution compatibility
+            //
+            // HookLogFactory::fromString() wraps context as $arguments = [0 => $context],
+            // breaking PsrLogMessageProcessor placeholders like {handle} and {url}.
+            //
+            // Using array format forces fromArray() method which preserves correct
+            // context structure. This works with all current Wonolog versions and
+            // has no negative side effects.
+            $logData = [
+                'message' => $message,
+                'context' => $context,
+            ];
+            do_action($actionName, $logData);
         }
     }
 
