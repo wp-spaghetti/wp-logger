@@ -140,118 +140,34 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * System is unusable.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function emergency($message, array $context = []): void
-    {
-        $this->log(LogLevel::EMERGENCY, $message, $context);
-    }
-
-    /**
-     * Action must be taken immediately.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function alert($message, array $context = []): void
-    {
-        $this->log(LogLevel::ALERT, $message, $context);
-    }
-
-    /**
-     * Critical conditions.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function critical($message, array $context = []): void
-    {
-        $this->log(LogLevel::CRITICAL, $message, $context);
-    }
-
-    /**
-     * Runtime errors that do not require immediate action but should typically
-     * be logged and monitored.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function error($message, array $context = []): void
-    {
-        $this->log(LogLevel::ERROR, $message, $context);
-    }
-
-    /**
-     * Exceptional occurrences that are not errors.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function warning($message, array $context = []): void
-    {
-        $this->log(LogLevel::WARNING, $message, $context);
-    }
-
-    /**
-     * Normal but significant events.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function notice($message, array $context = []): void
-    {
-        $this->log(LogLevel::NOTICE, $message, $context);
-    }
-
-    /**
-     * Interesting events.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function info($message, array $context = []): void
-    {
-        $this->log(LogLevel::INFO, $message, $context);
-    }
-
-    /**
-     * Detailed debug information.
-     *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
-     *
-     * @param mixed $message
-     */
-    public function debug($message, array $context = []): void
-    {
-        $this->log(LogLevel::DEBUG, $message, $context);
-    }
-
-    /**
      * Logs with an arbitrary level with environment-aware behavior.
      *
-     * NOTE: Type hints removed for PSR Log ^1.0 compatibility.
-     * TODO: Add back `string|\Stringable $message` type hint when PSR Log ^1.0 support is dropped.
+     * MESSAGE TYPE COMPATIBILITY:
+     *
+     * - Wonolog (primary target): Accepts truly mixed types natively
+     *   ✅ Throwable, WP_Error, Arrays, Objects, Strings - all supported
+     *
+     * - PSR Log ^1.0: Uses mixed type hint but expects primarily strings
+     *   ⚠️  Throwable/Objects/Arrays not officially supported by spec
+     *
+     * - PSR Log ^2.0+: Strictly enforces string|\Stringable only
+     *   ❌ Throwable, Arrays, Objects cause TypeError
+     *
+     * DESIGN DECISION:
+     * WP Logger maintains Wonolog-compatible design for maximum flexibility
+     * in the WordPress ecosystem. When Wonolog is active, all mixed types
+     * are passed through natively. In fallback mode, types are converted
+     * to strings via formatMessage().
+     *
+     * ACCEPTED TYPES:
+     * - Throwable objects: $logger->error($exception)
+     * - WP_Error objects: $logger->error($wpError)
+     * - Strings: $logger->error('message')
+     * - Arrays: $logger->error(['user' => 123])
+     * - Objects: $logger->error($customObject)
      *
      * @param mixed                $level
-     * @param mixed                $message
+     * @param mixed                $message - Accepts any type (Throwable, WP_Error, string, array, object)
      * @param array<string, mixed> $context
      *
      * @throws \Psr\Log\InvalidArgumentException
@@ -281,6 +197,87 @@ class Logger implements LoggerInterface
         if (\function_exists('do_action')) {
             do_action('wp_logger_logged', $level, $message, $context, $this->config['plugin_name']);
         }
+    }
+
+    /**
+     * System is unusable.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function emergency($message, array $context = []): void
+    {
+        $this->log(LogLevel::EMERGENCY, $message, $context);
+    }
+
+    /**
+     * Action must be taken immediately.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function alert($message, array $context = []): void
+    {
+        $this->log(LogLevel::ALERT, $message, $context);
+    }
+
+    /**
+     * Critical conditions.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function critical($message, array $context = []): void
+    {
+        $this->log(LogLevel::CRITICAL, $message, $context);
+    }
+
+    /**
+     * Runtime errors that do not require immediate action but should typically
+     * be logged and monitored.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function error($message, array $context = []): void
+    {
+        $this->log(LogLevel::ERROR, $message, $context);
+    }
+
+    /**
+     * Exceptional occurrences that are not errors.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function warning($message, array $context = []): void
+    {
+        $this->log(LogLevel::WARNING, $message, $context);
+    }
+
+    /**
+     * Normal but significant events.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function notice($message, array $context = []): void
+    {
+        $this->log(LogLevel::NOTICE, $message, $context);
+    }
+
+    /**
+     * Interesting events.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function info($message, array $context = []): void
+    {
+        $this->log(LogLevel::INFO, $message, $context);
+    }
+
+    /**
+     * Detailed debug information.
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
+     */
+    public function debug($message, array $context = []): void
+    {
+        $this->log(LogLevel::DEBUG, $message, $context);
     }
 
     /**
@@ -497,11 +494,21 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Log via Wonolog with hook support.
+     * Log via Wonolog with native mixed type support.
      *
+     * Unlike PSR Log ^2.0+ (string|\Stringable only), Wonolog was designed
+     * for WordPress ecosystem flexibility and accepts truly mixed types:
+     * - Throwable objects (exceptions)
+     * - WP_Error objects
+     * - Arrays and Objects (structured data)
+     * - Strings and primitives
+     *
+     * This allows natural WordPress-style logging without type conversions.
+     *
+     * @param mixed                $message - Accepts mixed types, conversion happens in formatMessage()
      * @param array<string, mixed> $context
      */
-    private function logViaWonolog(string $level, string|\Stringable $message, array $context): void
+    private function logViaWonolog(string $level, mixed $message, array $context): void
     {
         $wonologNamespace = $this->getWonologNamespace();
         $logConstant = $wonologNamespace.'\LOG';
@@ -540,9 +547,10 @@ class Logger implements LoggerInterface
     /**
      * Fallback logging when Wonolog is not available with environment-aware behavior.
      *
+     * @param mixed                $message - Accepts mixed types, conversion happens in formatMessage()
      * @param array<string, mixed> $context
      */
-    private function logViaFallback(string $level, string|\Stringable $message, array $context): void
+    private function logViaFallback(string $level, mixed $message, array $context): void
     {
         // Allow third-party plugins to handle logging when Wonolog is not available
         if (\function_exists('do_action')) {
@@ -660,9 +668,10 @@ class Logger implements LoggerInterface
     /**
      * Log to protected file in WordPress uploads directory.
      *
+     * @param mixed                $message - Passes mixed message to formatLogEntry() for conversion
      * @param array<string, mixed> $context
      */
-    private function logToFile(string $level, string|\Stringable $message, array $context): void
+    private function logToFile(string $level, mixed $message, array $context): void
     {
         if (!\function_exists('wp_upload_dir') || !\function_exists('wp_mkdir_p')) {
             return;
@@ -700,9 +709,10 @@ class Logger implements LoggerInterface
     /**
      * Format log entry for consistent output.
      *
+     * @param mixed                $message - Calls formatMessage() to convert mixed → string
      * @param array<string, mixed> $context
      */
-    private function formatLogEntry(string $level, string|\Stringable $message, array $context): string
+    private function formatLogEntry(string $level, mixed $message, array $context): string
     {
         $timestamp = gmdate('Y-m-d H:i:s');
         $environmentInfo = Environment::isProduction() ? '' : ' ['.Environment::getEnvironment().']';
@@ -760,9 +770,10 @@ class Logger implements LoggerInterface
     /**
      * Traditional error_log (used in development/debug mode).
      *
+     * @param mixed                $message - Calls formatMessage() to convert mixed → string
      * @param array<string, mixed> $context
      */
-    private function logToErrorLog(string $level, string|\Stringable $message, array $context): void
+    private function logToErrorLog(string $level, mixed $message, array $context): void
     {
         $environmentInfo = '['.Environment::getEnvironment().']';
 
@@ -786,9 +797,21 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Format message for consistent logging output.
+     * Format message for fallback logging (when Wonolog not available).
+     *
+     * Converts mixed types to strings for traditional logging methods.
+     * Only used in fallback mode - when Wonolog is active, mixed types
+     * are passed through natively without conversion.
+     *
+     * SUPPORTED CONVERSIONS:
+     * - Throwable → "Message in file.php:123"
+     * - WP_Error → error message string
+     * - Arrays/Objects → JSON representation
+     * - Primitives → string cast
+     *
+     * @param mixed $message - Accepts any type (Throwable, WP_Error, string, array, object)
      */
-    private function formatMessage(string|\Stringable $message): string
+    private function formatMessage(mixed $message): string
     {
         // Handle Throwable objects
         if ($message instanceof \Throwable) {

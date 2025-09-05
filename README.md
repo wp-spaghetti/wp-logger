@@ -28,6 +28,47 @@ A comprehensive WordPress logging service with Wonolog integration, secure file 
 - **Zero Dependencies**: Works with or without external logging libraries
 - **Plugin Isolation**: Each plugin/theme gets independent log directories and settings
 
+## Design Philosophy: Mixed Types for Maximum Flexibility
+
+WP Logger intentionally uses `mixed` type hints throughout its API, diverging from strict PSR Log ^2.0+ signatures. This design choice aligns with our primary integration target and WordPress ecosystem philosophy:
+
+### Why Mixed Types?
+
+**Wonolog Compatibility**: Our primary target, [Inpsyde Wonolog](https://github.com/inpsyde/Wonolog), accepts truly mixed types natively (Throwable, Arrays, Objects, WP_Error):
+```php
+// Wonolog native usage
+do_action('wonolog.log', $exception);        // ✅ Throwable
+do_action('wonolog.log', ['data' => 'log']); // ✅ Array  
+do_action('wonolog.log', $wpError);          // ✅ WP_Error
+```
+
+**PSR Log Version Differences**:
+- **PSR Log ^1.0**: Uses `mixed` type hint but primarily expects strings
+- **PSR Log ^2.0+**: Strictly enforces `string|\Stringable` only
+
+**WordPress Ecosystem**: WordPress prioritizes pragmatism and developer experience over strict typing. Our design reflects this philosophy.
+
+### Developer Benefits
+
+```php
+// ✅ Natural and intuitive - all supported
+$logger->error($exception);              // Throwable objects
+$logger->warning($wpError);              // WP_Error objects
+$logger->info(['user' => 123]);          // Structured data
+$logger->debug($customObject);           // Any object
+
+// vs. ❌ Verbose PSR ^2.0+ requirement
+$logger->error($exception->getMessage(), ['exception' => $exception]);
+```
+
+### How It Works
+
+- **With Wonolog**: Mixed types passed through natively without conversion
+- **Fallback Mode**: Mixed types converted to strings via `formatMessage()` 
+- **Best of Both**: WordPress flexibility + PSR compatibility + Wonolog power
+
+This approach ensures zero breaking changes while maximizing compatibility across the WordPress ecosystem.
+
 ## Installation
 
 Install via Composer:
