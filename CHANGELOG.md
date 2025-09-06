@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0](https://github.com/wp-spaghetti/wp-logger/compare/v2.1.3...v2.2.0) (2025-09-06)
+
+### Features
+
+* replace plugin_name arg w/ component_name ([#23](https://github.com/wp-spaghetti/wp-logger/issues/23)) ([329353e](https://github.com/wp-spaghetti/wp-logger/commit/329353e24253b25fa1cfbccf59875722768b841c))
+
 ## [2.1.3](https://github.com/wp-spaghetti/wp-logger/compare/v2.1.2...v2.1.3) (2025-09-05)
 
 ### Bug Fixes
