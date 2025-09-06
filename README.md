@@ -87,7 +87,7 @@ use WpSpaghetti\WpLogger\Logger;
 
 // Initialize with minimal configuration
 $logger = new Logger([
-    'plugin_name' => 'my-awesome-plugin'
+    'component_name' => 'my-awesome-plugin'
 ]);
 
 // Standard PSR-3 logging methods
@@ -104,7 +104,7 @@ use WpSpaghetti\WpLogger\Logger;
 
 // Configuration can come from environment variables via WP Env
 $logger = new Logger([
-    'plugin_name' => 'my-plugin',
+    'component_name' => 'my-plugin',
     'log_retention_days' => 60, // Can be overridden by LOGGER_RETENTION_DAYS env var
     'min_log_level' => 'info',  // Can be overridden by LOGGER_MIN_LEVEL env var
 ]);
@@ -132,7 +132,7 @@ class MyPlugin
     public function __construct() 
     {
         $this->logger = new Logger([
-            'plugin_name' => 'my-plugin',
+            'component_name' => 'my-plugin',
             'log_retention_days' => 30
         ]);
         
@@ -172,7 +172,7 @@ WP Logger v2.0 supports multiple configuration sources with intelligent priority
 ```php
 $config = [
     // Required: Unique identifier for your plugin/theme
-    'plugin_name' => 'my-plugin',
+    'component_name' => 'my-plugin',
     
     // Optional: Days to keep log files (default: 30)
     'log_retention_days' => 60,
@@ -184,11 +184,11 @@ $config = [
     'wonolog_namespace' => 'MyApp\Wonolog',
     
     // Optional: WordPress constant to disable logging
-    // (default: auto-generated from plugin_name)
+    // (default: auto-generated from component_name)
     'disable_logging_constant' => 'MY_PLUGIN_DISABLE_LOGGING',
     
     // Optional: WordPress constant for retention days
-    // (default: auto-generated from plugin_name)
+    // (default: auto-generated from component_name)
     'log_retention_constant' => 'MY_PLUGIN_LOG_RETENTION_DAYS'
 ];
 ```
@@ -197,7 +197,7 @@ $config = [
 
 ```bash
 # Global logger settings
-LOGGER_PLUGIN_NAME=my-plugin           # Plugin identifier
+LOGGER_COMPONENT_NAME=my-plugin        # Plugin/Theme identifier
 LOGGER_RETENTION_DAYS=30               # Log retention period
 LOGGER_MIN_LEVEL=info                  # Minimum log level
 LOGGER_DISABLED=false                  # Disable all logging
@@ -317,7 +317,7 @@ class MyAwesomePlugin
     public function __construct() 
     {
         $this->logger = new Logger([
-            'plugin_name' => 'my-awesome-plugin',
+            'component_name' => 'my-awesome-plugin',
             'log_retention_days' => 30
         ]);
         
@@ -359,7 +359,7 @@ new MyAwesomePlugin();
 use WpSpaghetti\WpLogger\Logger;
 
 $theme_logger = new Logger([
-    'plugin_name' => get_template(),
+    'component_name' => get_template(),
     'log_retention_days' => 14
 ]);
 
@@ -393,7 +393,7 @@ class ErrorHandler
     
     public function __construct() 
     {
-        $this->logger = new Logger(['plugin_name' => 'error-handler']);
+        $this->logger = new Logger(['component_name' => 'error-handler']);
         
         // Hook into WordPress error handling
         add_action('wp_die_handler', [$this, 'handle_wp_die']);
@@ -541,7 +541,7 @@ add_filter('wp_logger_wonolog_action', function($action, $level, $message, $cont
 
 ```php
 // React to all log entries
-add_action('wp_logger_logged', function($level, $message, $context, $plugin_name) {
+add_action('wp_logger_logged', function($level, $message, $context, $component_name) {
     // Send critical errors to external monitoring
     if ($level === 'critical') {
         send_to_monitoring_service($message, $context);
@@ -549,12 +549,12 @@ add_action('wp_logger_logged', function($level, $message, $context, $plugin_name
 }, 10, 4);
 
 // Handle fallback logging
-add_action('wp_logger_fallback', function($level, $message, $context, $plugin_name) {
+add_action('wp_logger_fallback', function($level, $message, $context, $component_name) {
     // Custom fallback when Wonolog is not available
 }, 10, 4);
 
 // Hook into specific log levels during fallback
-add_action('wp_logger_fallback_error', function($message, $context, $plugin_name) {
+add_action('wp_logger_fallback_error', function($message, $context, $component_name) {
     // Handle error-level logs specifically
 }, 10, 3);
 ```

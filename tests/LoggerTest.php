@@ -57,13 +57,13 @@ final class LoggerTest extends TestCase
     public function testBasicConfiguration(): void
     {
         $logger = new Logger([
-            'plugin_name' => 'test-plugin',
+            'component_name' => 'test-plugin',
             'log_retention_days' => 60,
         ]);
 
         $config = $logger->getConfig();
 
-        self::assertSame('test-plugin', $config['plugin_name']);
+        self::assertSame('test-plugin', $config['component_name']);
         self::assertSame(60, $config['log_retention_days']);
         self::assertSame('TEST_PLUGIN_DISABLE_LOGGING', $config['disable_logging_constant']);
         self::assertSame('TEST_PLUGIN_LOG_RETENTION_DAYS', $config['log_retention_constant']);
@@ -72,7 +72,7 @@ final class LoggerTest extends TestCase
     public function testEnvironmentBasedConfiguration(): void
     {
         // Set environment variables
-        set_mock_env_var('LOGGER_PLUGIN_NAME', 'env-plugin');
+        set_mock_env_var('LOGGER_COMPONENT_NAME', 'env-plugin');
         set_mock_env_var('LOGGER_RETENTION_DAYS', '45');
         set_mock_env_var('LOGGER_MIN_LEVEL', 'warning');
         set_mock_env_var('LOGGER_WONOLOG_NAMESPACE', 'Custom\Logger');
@@ -81,7 +81,7 @@ final class LoggerTest extends TestCase
 
         $config = $logger->getConfig();
 
-        self::assertSame('env-plugin', $config['plugin_name']);
+        self::assertSame('env-plugin', $config['component_name']);
         self::assertSame(45, $config['log_retention_days']);
         self::assertSame('warning', $config['min_log_level']);
         self::assertSame('Custom\Logger', $config['wonolog_namespace']);
@@ -89,17 +89,17 @@ final class LoggerTest extends TestCase
 
     public function testPluginSpecificEnvironmentVariables(): void
     {
-        // Set plugin-specific environment variables (should override global ones)
+        // Set component-specific environment variables (should override global ones)
         set_mock_env_var('LOGGER_RETENTION_DAYS', '30'); // Global
         set_mock_env_var('MY_PLUGIN_LOG_RETENTION_DAYS', '90'); // Plugin-specific
 
         $logger = new Logger([
-            'plugin_name' => 'my-plugin',
+            'component_name' => 'my-plugin',
         ]);
 
         $config = $logger->getConfig();
 
-        // Should use plugin-specific value
+        // Should use component-specific value
         self::assertSame(90, $config['log_retention_days']);
     }
 
@@ -110,7 +110,7 @@ final class LoggerTest extends TestCase
         \define('TEST_PLUGIN_LOG_RETENTION_DAYS', 60); // WordPress constant
 
         $logger = new Logger([
-            'plugin_name' => 'test-plugin',
+            'component_name' => 'test-plugin',
             'log_retention_days' => 90, // Config array
         ]);
 
@@ -121,11 +121,11 @@ final class LoggerTest extends TestCase
 
     public function testDefaultConfiguration(): void
     {
-        $logger = new Logger(['plugin_name' => 'test']);
+        $logger = new Logger(['component_name' => 'test']);
 
         $config = $logger->getConfig();
 
-        self::assertSame('test', $config['plugin_name']);
+        self::assertSame('test', $config['component_name']);
         self::assertSame(30, $config['log_retention_days']); // Default value
         self::assertSame('Inpsyde\Wonolog', $config['wonolog_namespace']);
         self::assertSame('debug', $config['min_log_level']);
@@ -134,42 +134,42 @@ final class LoggerTest extends TestCase
     public function testRequiredPluginNameValidation(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
+        $this->expectExceptionMessage('component_name is required in configuration or LOGGER_COMPONENT_NAME environment variable');
 
         new Logger([]);
     }
 
     public function testPluginNameFromEnvironment(): void
     {
-        set_mock_env_var('LOGGER_PLUGIN_NAME', 'env-test-plugin');
+        set_mock_env_var('LOGGER_COMPONENT_NAME', 'env-test-plugin');
 
         $logger = new Logger();
 
         $config = $logger->getConfig();
-        self::assertSame('env-test-plugin', $config['plugin_name']);
+        self::assertSame('env-test-plugin', $config['component_name']);
     }
 
     public function testEmptyPluginNameValidation(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
+        $this->expectExceptionMessage('component_name is required in configuration or LOGGER_COMPONENT_NAME environment variable');
 
-        new Logger(['plugin_name' => '']);
+        new Logger(['component_name' => '']);
     }
 
     public function testWhitespacePluginNameValidation(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
+        $this->expectExceptionMessage('component_name is required in configuration or LOGGER_COMPONENT_NAME environment variable');
 
-        new Logger(['plugin_name' => '   ']);
+        new Logger(['component_name' => '   ']);
     }
 
     public function testMinimumLogLevelFiltering(): void
     {
         // Set minimum level to warning
         $logger = new Logger([
-            'plugin_name' => 'test-plugin',
+            'component_name' => 'test-plugin',
             'min_log_level' => 'warning',
         ]);
 
@@ -188,7 +188,7 @@ final class LoggerTest extends TestCase
 
     public function testLoggingBehaviorWithAndWithoutWonolog(): void
     {
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Without Wonolog (fallback mode)
         $logger->info('Test message without Wonolog');
@@ -204,7 +204,7 @@ final class LoggerTest extends TestCase
 
     public function testBasicLogging(): void
     {
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Test all PSR-3 log levels
         $logger->emergency('Emergency message');
@@ -229,7 +229,7 @@ final class LoggerTest extends TestCase
 
     public function testLoggingWithContext(): void
     {
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         $context = ['user_id' => 123, 'action' => 'login'];
         $logger->info('User logged in', $context);
@@ -257,7 +257,7 @@ final class LoggerTest extends TestCase
         // Set environment for testing
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'development');
 
-        $logger = new Logger(['plugin_name' => 'file-logging-test']);
+        $logger = new Logger(['component_name' => 'file-logging-test']);
 
         // Verify test environment setup
         $uploadDir = wp_upload_dir();
@@ -290,7 +290,7 @@ final class LoggerTest extends TestCase
         // Disable logging via environment variable
         set_mock_env_var('LOGGER_DISABLED', 'true');
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Verify logging is disabled
         $debugInfo = $logger->getDebugInfo();
@@ -305,10 +305,10 @@ final class LoggerTest extends TestCase
 
     public function testPluginSpecificLoggingDisabled(): void
     {
-        // Disable logging for specific plugin
-        set_mock_env_var('TEST_PLUGIN_DISABLED', 'true');
+        // Disable logging for specific component
+        set_mock_env_var('TEST_PLUGIN_LOGGER_DISABLED', 'true');
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Verify logging is disabled
         $debugInfo = $logger->getDebugInfo();
@@ -321,14 +321,14 @@ final class LoggerTest extends TestCase
         set_mock_env_var('LOGGER_MIN_LEVEL', 'warning');
 
         $logger = new Logger([
-            'plugin_name' => 'debug-test',
+            'component_name' => 'debug-test',
             'log_retention_days' => 45,
         ]);
 
         $debugInfo = $logger->getDebugInfo();
 
         // Test basic configuration
-        self::assertArrayHasKey('plugin_name', $debugInfo);
+        self::assertArrayHasKey('component_name', $debugInfo);
         self::assertArrayHasKey('min_log_level', $debugInfo);
         self::assertArrayHasKey('log_retention_days', $debugInfo);
 
@@ -346,7 +346,7 @@ final class LoggerTest extends TestCase
         self::assertArrayHasKey('wp_multisite', $debugInfo);
 
         // Test values
-        self::assertSame('debug-test', $debugInfo['plugin_name']);
+        self::assertSame('debug-test', $debugInfo['component_name']);
         self::assertSame('warning', $debugInfo['min_log_level']);
         self::assertSame('staging', $debugInfo['environment_type']);
         self::assertTrue($debugInfo['is_staging']);
@@ -359,12 +359,12 @@ final class LoggerTest extends TestCase
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
         set_mock_env_var('WP_DEBUG', 'false');
 
-        $logger = new Logger(['plugin_name' => 'protection-files-test']);
+        $logger = new Logger(['component_name' => 'protection-files-test']);
 
         $logger->info('Create protection files');
 
-        $pluginDir = $this->testLogDir.'/protection-files-test';
-        $logDir = $pluginDir.'/logs';
+        $componentDir = $this->testLogDir.'/protection-files-test';
+        $logDir = $componentDir.'/logs';
 
         // Check that directory exists first
         self::assertDirectoryExists($logDir, 'Log directory should be created');
@@ -373,7 +373,7 @@ final class LoggerTest extends TestCase
         self::assertFileExists($logDir.'/.htaccess');
         self::assertFileExists($logDir.'/web.config');
         self::assertFileExists($logDir.'/index.php');
-        self::assertFileExists($pluginDir.'/index.php');
+        self::assertFileExists($componentDir.'/index.php');
         self::assertFileExists($logDir.'/README');
 
         // Check README includes environment information
@@ -387,7 +387,7 @@ final class LoggerTest extends TestCase
 
     public function testWonologNotActiveByDefault(): void
     {
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         $debugInfo = $logger->getDebugInfo();
 
@@ -397,7 +397,7 @@ final class LoggerTest extends TestCase
 
     public function testWonologCacheRefresh(): void
     {
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Initial state
         self::assertFalse($logger->getDebugInfo()['wonolog_active']);
@@ -421,7 +421,7 @@ final class LoggerTest extends TestCase
         // Define custom retention via environment
         set_mock_env_var('TEST_PLUGIN_LOG_RETENTION_DAYS', '90');
 
-        $logger = new Logger(['plugin_name' => 'test_plugin']);
+        $logger = new Logger(['component_name' => 'test_plugin']);
 
         $debugInfo = $logger->getDebugInfo();
         self::assertSame(90, $debugInfo['log_retention_days']);
@@ -429,7 +429,7 @@ final class LoggerTest extends TestCase
 
     public function testConstantNameGeneration(): void
     {
-        // Test with various plugin name formats
+        // Test with various component name formats
         $testCases = [
             'simple' => 'SIMPLE_DISABLE_LOGGING',
             'with-dashes' => 'WITH_DASHES_DISABLE_LOGGING',
@@ -438,8 +438,8 @@ final class LoggerTest extends TestCase
             'numbers123' => 'NUMBERS123_DISABLE_LOGGING',
         ];
 
-        foreach ($testCases as $pluginName => $expectedConstant) {
-            $logger = new Logger(['plugin_name' => $pluginName]);
+        foreach ($testCases as $componentName => $expectedConstant) {
+            $logger = new Logger(['component_name' => $componentName]);
             $config = $logger->getConfig();
 
             self::assertSame($expectedConstant, $config['disable_logging_constant']);
@@ -452,7 +452,7 @@ final class LoggerTest extends TestCase
         set_mock_env_var('CLEANUP_TEST_LOG_RETENTION_DAYS', '1'); // 1 day retention
         set_wp_rand_result(1); // Force cleanup to run
 
-        $logger = new Logger(['plugin_name' => 'cleanup-test']);
+        $logger = new Logger(['component_name' => 'cleanup-test']);
 
         // Create old log file
         $logDir = $this->testLogDir.'/cleanup-test/logs';
@@ -476,7 +476,7 @@ final class LoggerTest extends TestCase
         // Test debug environment (should use error_log)
         set_mock_env_var('WP_DEBUG', 'true');
 
-        $debugLogger = new Logger(['plugin_name' => 'debug-test']);
+        $debugLogger = new Logger(['component_name' => 'debug-test']);
 
         // Verify it's in debug mode
         $debugInfo = $debugLogger->getDebugInfo();
@@ -486,7 +486,7 @@ final class LoggerTest extends TestCase
         set_mock_env_var('WP_DEBUG', 'false');
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
 
-        $prodLogger = new Logger(['plugin_name' => 'prod-test']);
+        $prodLogger = new Logger(['component_name' => 'prod-test']);
 
         $debugInfo = $prodLogger->getDebugInfo();
         self::assertTrue($debugInfo['is_production']);
