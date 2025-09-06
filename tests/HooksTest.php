@@ -44,7 +44,7 @@ final class HooksTest extends TestCase
         // Set environment namespace
         set_mock_env_var('LOGGER_WONOLOG_NAMESPACE', 'CustomApp\Logger');
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // This will trigger the hook internally when debug info is requested
         $logger->getDebugInfo();
@@ -88,7 +88,7 @@ final class HooksTest extends TestCase
         // Mock Wonolog as active
         set_did_action_result($setupAction, 1);
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Force cache refresh
         $logger->refreshWonologCache();
@@ -139,7 +139,7 @@ final class HooksTest extends TestCase
         set_did_action_result($setupAction, 1);
 
         $logger = new Logger([
-            'plugin_name' => 'test-plugin',
+            'component_name' => 'test-plugin',
             'wonolog_namespace' => $namespace,
         ]);
 
@@ -177,7 +177,7 @@ final class HooksTest extends TestCase
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'staging');
         set_mock_env_var('LOGGER_MIN_LEVEL', 'warning');
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Override should be called before any logging
         $logger->warning('This should be overridden');
@@ -208,7 +208,7 @@ final class HooksTest extends TestCase
 
     public function testOverrideLogPreventsDefaultLogging(): void
     {
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         // Set up override to return true (prevent default logging)
         get_applied_filters();
@@ -243,7 +243,7 @@ final class HooksTest extends TestCase
         // Set environment
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
         $logger->notice('Test notice', ['key' => 'value']);
 
         $actions = get_triggered_actions();
@@ -255,7 +255,7 @@ final class HooksTest extends TestCase
                 $loggedActionTriggered = true;
                 self::assertSame('notice', $action['args'][0]); // level
                 self::assertSame(['key' => 'value'], $action['args'][2]); // context
-                self::assertSame('test-plugin', $action['args'][3]); // plugin_name
+                self::assertSame('test-plugin', $action['args'][3]); // component_name
 
                 break;
             }
@@ -270,7 +270,7 @@ final class HooksTest extends TestCase
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
         set_mock_env_var('WP_DEBUG', 'false'); // Force fallback behavior
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
         $logger->critical('Critical error in production');
 
         $actions = get_triggered_actions();
@@ -303,7 +303,7 @@ final class HooksTest extends TestCase
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'staging');
         set_mock_env_var('LOGGER_MIN_LEVEL', 'info');
 
-        $logger = new Logger(['plugin_name' => 'staging-test']);
+        $logger = new Logger(['component_name' => 'staging-test']);
 
         // Debug messages should be filtered out due to min level, not environment
         $logger->debug('Debug message'); // Should be filtered by min level
@@ -349,7 +349,7 @@ final class HooksTest extends TestCase
         set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
         set_mock_env_var('LOGGER_WONOLOG_NAMESPACE', 'Production\Logger');
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
         $context = ['user' => 'admin', 'ip' => '192.168.1.1'];
 
         $logger->alert('Test alert message', $context);
@@ -393,7 +393,7 @@ final class HooksTest extends TestCase
         self::assertSame('alert', $loggedAction['args'][0]); // level
         self::assertSame('Test alert message', $loggedAction['args'][1]); // message
         self::assertSame($context, $loggedAction['args'][2]); // context
-        self::assertSame('test-plugin', $loggedAction['args'][3]); // plugin_name
+        self::assertSame('test-plugin', $loggedAction['args'][3]); // component_name
     }
 
     public function testCustomWonologNamespaceFromEnvironment(): void
@@ -401,7 +401,7 @@ final class HooksTest extends TestCase
         // Set custom namespace via environment
         set_mock_env_var('LOGGER_WONOLOG_NAMESPACE', 'MyCustomApp\LoggerSystem');
 
-        $logger = new Logger(['plugin_name' => 'test-plugin']);
+        $logger = new Logger(['component_name' => 'test-plugin']);
 
         $debugInfo = $logger->getDebugInfo();
 
@@ -437,7 +437,7 @@ final class HooksTest extends TestCase
             set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
             set_mock_env_var('WP_DEBUG', 'false');
 
-            $logger = new Logger(['plugin_name' => 'env-test-plugin']);
+            $logger = new Logger(['component_name' => 'env-test-plugin']);
 
             $logger->error('Error in '.$environment);
 
@@ -455,22 +455,22 @@ final class HooksTest extends TestCase
 
     public function testPluginSpecificEnvironmentHooks(): void
     {
-        // Set plugin-specific environment variables
-        set_mock_env_var('MY_SPECIAL_PLUGIN_DISABLED', 'false');
+        // Set component-specific environment variables
+        set_mock_env_var('MY_SPECIAL_PLUGIN_LOGGER_DISABLED', 'false');
         set_mock_env_var('MY_SPECIAL_PLUGIN_LOG_RETENTION_DAYS', '14');
 
-        $logger = new Logger(['plugin_name' => 'my-special-plugin']);
+        $logger = new Logger(['component_name' => 'my-special-plugin']);
 
         // Trigger logging to test environment-based configuration
         $logger->warning('Plugin-specific configuration test');
 
         $debugInfo = $logger->getDebugInfo();
 
-        // Should use plugin-specific retention from environment
+        // Should use component-specific retention from environment
         self::assertSame(14, $debugInfo['log_retention_days']);
         self::assertFalse($debugInfo['logging_disabled']);
 
-        // Verify hook was called with plugin-specific configuration
+        // Verify hook was called with component-specific configuration
         $actions = get_triggered_actions();
         $loggedActions = array_filter($actions, static fn (array $action): bool => 'wp_logger_logged' === $action['hook']);
 
@@ -482,7 +482,7 @@ final class HooksTest extends TestCase
         // Set minimum log level via environment
         set_mock_env_var('LOGGER_MIN_LEVEL', 'error');
 
-        $logger = new Logger(['plugin_name' => 'min-level-test']);
+        $logger = new Logger(['component_name' => 'min-level-test']);
 
         // Try logging at different levels
         $logger->debug('Debug message');     // Should be filtered

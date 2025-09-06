@@ -57,7 +57,7 @@ class Logger implements LoggerInterface
      * @var array<string, mixed>
      */
     private const DEFAULT_CONFIG = [
-        'plugin_name' => null, // Required - can come from environment
+        'component_name' => null, // Required - can come from environment
         'log_retention_days' => self::DEFAULT_LOG_RETENTION_DAYS,
         'wonolog_namespace' => 'Inpsyde\Wonolog',
         'min_log_level' => LogLevel::DEBUG,
@@ -107,26 +107,26 @@ class Logger implements LoggerInterface
      * Initialize logger with configuration and environment integration.
      *
      * @param array<string, mixed> $config Configuration array with the following options:
-     *                                     - plugin_name: string - Unique identifier (can come from LOGGER_PLUGIN_NAME env var)
+     *                                     - component_name: string - Unique identifier (can come from LOGGER_COMPONENT_NAME env var)
      *                                     - log_retention_days: int (default: 30) - Days to keep log files
      *                                     - wonolog_namespace: string (default: 'Inpsyde\Wonolog') - Wonolog namespace
      *                                     - min_log_level: string (default: 'debug') - Minimum log level to record
      *                                     - disable_logging_constant: string - WordPress constant name to disable logging
      *                                     - log_retention_constant: string - WordPress constant name for retention days
      *
-     * @throws \InvalidArgumentException When plugin_name is missing from both config and environment
+     * @throws \InvalidArgumentException When component_name is missing from both config and environment
      */
     public function __construct(array $config = [])
     {
-        // Get plugin name from config or environment
-        $pluginName = $config['plugin_name'] ?? Environment::get('LOGGER_PLUGIN_NAME');
+        // Get component name from config or environment
+        $componentName = $config['component_name'] ?? Environment::get('LOGGER_COMPONENT_NAME');
 
-        if (!$pluginName || !\is_string($pluginName) || '' === trim($pluginName)) {
-            throw new \InvalidArgumentException('plugin_name is required in configuration or LOGGER_PLUGIN_NAME environment variable');
+        if (!$componentName || !\is_string($componentName) || '' === trim($componentName)) {
+            throw new \InvalidArgumentException('component_name is required in configuration or LOGGER_COMPONENT_NAME environment variable');
         }
 
         // Build configuration with priority: Plugin-specific env > Global env > Constants > Config array > Defaults
-        $this->config = $this->buildConfiguration($pluginName, $config);
+        $this->config = $this->buildConfiguration($componentName, $config);
     }
 
     /**
@@ -195,7 +195,7 @@ class Logger implements LoggerInterface
 
         // Allow third-party plugins to hook into all logging
         if (\function_exists('do_action')) {
-            do_action('wp_logger_logged', $level, $message, $context, $this->config['plugin_name']);
+            do_action('wp_logger_logged', $level, $message, $context, $this->config['component_name']);
         }
     }
 
@@ -319,7 +319,7 @@ class Logger implements LoggerInterface
 
         return [
             // Basic configuration
-            'plugin_name' => $this->config['plugin_name'],
+            'component_name' => $this->config['component_name'],
             'min_log_level' => $this->config['min_log_level'],
             'log_retention_days' => $retentionDays,
             'disable_constant' => $this->config['disable_logging_constant'],
@@ -362,20 +362,20 @@ class Logger implements LoggerInterface
      *
      * @return array<string, mixed>
      */
-    private function buildConfiguration(string $pluginName, array $config): array
+    private function buildConfiguration(string $componentName, array $config): array
     {
         // Start with defaults
         $finalConfig = self::DEFAULT_CONFIG;
-        $finalConfig['plugin_name'] = $pluginName;
+        $finalConfig['component_name'] = $componentName;
 
         // Merge configuration array
         $finalConfig = array_merge($finalConfig, $config);
 
         // Apply environment-based overrides
-        $this->applyEnvironmentOverrides($finalConfig, $pluginName);
+        $this->applyEnvironmentOverrides($finalConfig, $componentName);
 
         // Auto-generate constant names if not provided
-        $this->generateMissingConstants($finalConfig, $pluginName);
+        $this->generateMissingConstants($finalConfig, $componentName);
 
         return $finalConfig;
     }
@@ -385,10 +385,10 @@ class Logger implements LoggerInterface
      *
      * @param array<string, mixed> $config
      */
-    private function applyEnvironmentOverrides(array &$config, string $pluginName): void
+    private function applyEnvironmentOverrides(array &$config, string $componentName): void
     {
         // WordPress constants
-        $retentionConstant = $this->generateConstantName($pluginName, 'LOG_RETENTION_DAYS');
+        $retentionConstant = $this->generateConstantName($componentName, 'LOG_RETENTION_DAYS');
         if (\defined($retentionConstant)) {
             $days = \constant($retentionConstant);
             if (\is_int($days) && $days > 0) {
@@ -413,14 +413,14 @@ class Logger implements LoggerInterface
         }
 
         // Plugin-specific environment variables (highest priority)
-        $pluginRetention = Environment::getInt($this->generateEnvKey($pluginName, 'LOG_RETENTION_DAYS'));
-        if ($pluginRetention > 0) {
-            $config['log_retention_days'] = $pluginRetention;
+        $componentRetention = Environment::getInt($this->generateEnvKey($componentName, 'LOG_RETENTION_DAYS'));
+        if ($componentRetention > 0) {
+            $config['log_retention_days'] = $componentRetention;
         }
 
-        $pluginMinLevel = Environment::get($this->generateEnvKey($pluginName, 'MIN_LEVEL'));
-        if ($pluginMinLevel) {
-            $config['min_log_level'] = $pluginMinLevel;
+        $componentMinLevel = Environment::get($this->generateEnvKey($componentName, 'MIN_LEVEL'));
+        if ($componentMinLevel) {
+            $config['min_log_level'] = $componentMinLevel;
         }
     }
 
@@ -429,14 +429,14 @@ class Logger implements LoggerInterface
      *
      * @param array<string, mixed> $config
      */
-    private function generateMissingConstants(array &$config, string $pluginName): void
+    private function generateMissingConstants(array &$config, string $componentName): void
     {
         if (!$config['disable_logging_constant']) {
-            $config['disable_logging_constant'] = $this->generateConstantName($pluginName, 'DISABLE_LOGGING');
+            $config['disable_logging_constant'] = $this->generateConstantName($componentName, 'DISABLE_LOGGING');
         }
 
         if (!$config['log_retention_constant']) {
-            $config['log_retention_constant'] = $this->generateConstantName($pluginName, 'LOG_RETENTION_DAYS');
+            $config['log_retention_constant'] = $this->generateConstantName($componentName, 'LOG_RETENTION_DAYS');
         }
     }
 
@@ -452,24 +452,24 @@ class Logger implements LoggerInterface
     }
 
     /**
-     * Generate plugin-specific environment variable key.
+     * Generate component-specific environment variable key.
      */
-    private function generateEnvKey(string $pluginName, string $key): string
+    private function generateEnvKey(string $componentName, string $key): string
     {
-        $pluginPrefix = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '_', $pluginName) ?? $pluginName);
+        $componentPrefix = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '_', $componentName) ?? $componentName);
 
-        return \sprintf('%s_%s', $pluginPrefix, $key);
+        return \sprintf('%s_%s', $componentPrefix, $key);
     }
 
     /**
-     * Generate properly formatted constant name from plugin name.
+     * Generate properly formatted constant name from component name.
      */
-    private function generateConstantName(string $pluginName, string $suffix): string
+    private function generateConstantName(string $componentName, string $suffix): string
     {
-        // Convert plugin name to uppercase and replace non-alphanumeric chars with underscores
-        $constantBase = preg_replace('/[^a-zA-Z0-9]/', '_', $pluginName);
+        // Convert component name to uppercase and replace non-alphanumeric chars with underscores
+        $constantBase = preg_replace('/[^a-zA-Z0-9]/', '_', $componentName);
         if (null === $constantBase) {
-            $constantBase = $pluginName;
+            $constantBase = $componentName;
         }
 
         return strtoupper($constantBase).'_'.$suffix;
@@ -566,8 +566,8 @@ class Logger implements LoggerInterface
     {
         // Allow third-party plugins to handle logging when Wonolog is not available
         if (\function_exists('do_action')) {
-            do_action('wp_logger_fallback', $level, $message, $context, $this->config['plugin_name']);
-            do_action('wp_logger_fallback_'.$level, $message, $context, $this->config['plugin_name']);
+            do_action('wp_logger_fallback', $level, $message, $context, $this->config['component_name']);
+            do_action('wp_logger_fallback_'.$level, $message, $context, $this->config['component_name']);
         }
 
         // If debug is enabled, always use error_log (developer environment)
@@ -596,9 +596,9 @@ class Logger implements LoggerInterface
             return true;
         }
 
-        // Check plugin-specific environment variable
-        $pluginEnvKey = $this->generateEnvKey($this->config['plugin_name'], 'DISABLED');
-        if (Environment::getBool($pluginEnvKey)) {
+        // Check component-specific environment variable
+        $componentEnvKey = $this->generateEnvKey($this->config['component_name'], 'LOGGER_DISABLED');
+        if (Environment::getBool($componentEnvKey)) {
             return true;
         }
 
@@ -670,7 +670,7 @@ class Logger implements LoggerInterface
                 $this->logDirectoryCache = '';
             } else {
                 $uploadDir = wp_upload_dir();
-                $this->logDirectoryCache = $uploadDir['basedir'].'/'.$this->config['plugin_name'].'/logs';
+                $this->logDirectoryCache = $uploadDir['basedir'].'/'.$this->config['component_name'].'/logs';
             }
         }
 
@@ -709,13 +709,13 @@ class Logger implements LoggerInterface
      */
     private function createLogDirectoryStructure(string $logDir): void
     {
-        $pluginDir = \dirname($logDir);
+        $componentDir = \dirname($logDir);
 
         if (!wp_mkdir_p($logDir)) {
             return;
         }
 
-        $this->createProtectionFiles($pluginDir, $logDir);
+        $this->createProtectionFiles($componentDir, $logDir);
     }
 
     /**
@@ -764,7 +764,7 @@ class Logger implements LoggerInterface
     private function getLogFilePath(string $logDir): string
     {
         $datePrefix = gmdate('Y-m-d');
-        $hash = substr(md5($this->config['plugin_name']), 0, self::LOG_FILE_HASH_LENGTH);
+        $hash = substr(md5($this->config['component_name']), 0, self::LOG_FILE_HASH_LENGTH);
 
         return $logDir.'/'.$datePrefix.'_'.$hash.'.dat';
     }
@@ -792,7 +792,7 @@ class Logger implements LoggerInterface
         $logEntry = \sprintf(
             '%s [%s] [%s] %s',
             $environmentInfo,
-            $this->config['plugin_name'],
+            $this->config['component_name'],
             strtoupper($level),
             $this->formatMessage($message)
         );
@@ -859,9 +859,9 @@ class Logger implements LoggerInterface
     /**
      * Create protection files for multiple web servers.
      */
-    private function createProtectionFiles(string $pluginDir, string $logDir): void
+    private function createProtectionFiles(string $componentDir, string $logDir): void
     {
-        $pluginFolder = basename($pluginDir);
+        $componentFolder = basename($componentDir);
 
         // Apache protection (.htaccess)
         $htaccessContent = "# WordPress.org compliant log protection\n";
@@ -878,7 +878,7 @@ class Logger implements LoggerInterface
         $indexContent .= "// Prevents directory browsing and direct file access\n";
         $indexContent .= "http_response_code(403);\n";
         $indexContent .= "exit('Access denied');\n";
-        file_put_contents($pluginDir.'/index.php', $indexContent);
+        file_put_contents($componentDir.'/index.php', $indexContent);
         file_put_contents($logDir.'/index.php', $indexContent);
 
         // IIS Web.config
@@ -893,28 +893,28 @@ class Logger implements LoggerInterface
         file_put_contents($logDir.'/web.config', $webconfigContent);
 
         // Server configuration guide with environment info
-        $serverConfig = $this->generateReadme($pluginFolder);
+        $serverConfig = $this->generateReadme($componentFolder);
         file_put_contents($logDir.'/README', $serverConfig);
     }
 
     /**
      * Generate complete server configuration guide with environment information.
      */
-    private function generateReadme(string $pluginFolder): string
+    private function generateReadme(string $componentFolder): string
     {
         $retentionDays = $this->getLogRetentionDays();
         $disableConstant = $this->config['disable_logging_constant'];
         $retentionConstant = $this->config['log_retention_constant'];
-        $pluginEnvPrefix = $this->generateEnvKey($this->config['plugin_name'], '');
+        $componentEnvPrefix = $this->generateEnvKey($this->config['component_name'], '');
 
         $config = "# LOG DIRECTORY PROTECTION CONFIGURATION\n";
         $config .= "# ========================================\n\n";
-        $config .= "This directory contains plugin log files and should be protected from direct access.\n";
+        $config .= "This directory contains plugin/theme log files and should be protected from direct access.\n";
         $config .= "The following configurations provide protection for different web servers:\n\n";
 
         // Add server-specific configurations...
         $config .= "## NGINX\n";
-        $config .= "location ~* /wp-content/uploads/{$pluginFolder}/logs/ {\n";
+        $config .= "location ~* /wp-content/uploads/{$componentFolder}/logs/ {\n";
         $config .= "    deny all;\n";
         $config .= "    return 403;\n";
         $config .= "}\n\n";
@@ -923,7 +923,7 @@ class Logger implements LoggerInterface
         $config .= "# Already protected via .htaccess file (automatic)\n\n";
 
         $config .= "## LOGGING CONTROL\n";
-        $config .= "You can control plugin logging behavior via environment variables or wp-config.php:\n\n";
+        $config .= "You can control plugin/theme logging behavior via environment variables or wp-config.php:\n\n";
 
         $config .= "# Environment Variables (recommended):\n";
         $config .= "# Global logger settings:\n";
@@ -932,20 +932,20 @@ class Logger implements LoggerInterface
         $config .= "LOGGER_MIN_LEVEL=info\n\n";
 
         $config .= "# Plugin-specific settings (higher priority):\n";
-        $config .= $pluginEnvPrefix.'DISABLED=false'.PHP_EOL;
-        $config .= "{$pluginEnvPrefix}LOG_RETENTION_DAYS={$retentionDays}\n\n";
+        $config .= $componentEnvPrefix.'DISABLED=false'.PHP_EOL;
+        $config .= "{$componentEnvPrefix}LOG_RETENTION_DAYS={$retentionDays}\n\n";
 
         $config .= "# WordPress Constants (wp-config.php):\n";
         $config .= "# Enable debug logging (uses error_log):\n";
         $config .= "define('WP_DEBUG', true);\n";
         $config .= "define('WP_ENVIRONMENT_TYPE', 'development'); // or 'staging', 'production'\n\n";
-        $config .= "# Disable all plugin logging:\n";
+        $config .= "# Disable all plugin/theme logging:\n";
         $config .= "define('{$disableConstant}', true);\n\n";
         $config .= "# Customize log retention period:\n";
         $config .= "define('{$retentionConstant}', {$retentionDays});\n\n";
 
         $config .= 'Generated: '.gmdate('Y-m-d H:i:s')." UTC\n";
-        $config .= 'Plugin: '.$this->config['plugin_name']."\n";
+        $config .= 'Plugin: '.$this->config['component_name']."\n";
         $config .= 'Environment: '.Environment::getEnvironment()."\n";
         $config .= "Log retention: {$retentionDays} days\n";
 
