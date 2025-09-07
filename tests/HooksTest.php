@@ -196,8 +196,8 @@ final class HooksTest extends TestCase
                 // The config is the 4th argument (index 3) in the args array
                 $config = $appliedFilter['args'][3]; // Fixed: was args[4], should be args[3]
                 self::assertIsArray($config);
-                self::assertArrayHasKey('min_log_level', $config);
-                self::assertSame('warning', $config['min_log_level']);
+                self::assertArrayHasKey('min_level', $config);
+                self::assertSame('warning', $config['min_level']);
 
                 break;
             }
@@ -457,7 +457,7 @@ final class HooksTest extends TestCase
     {
         // Set component-specific environment variables
         set_mock_env_var('MY_SPECIAL_PLUGIN_LOGGER_DISABLED', 'false');
-        set_mock_env_var('MY_SPECIAL_PLUGIN_LOG_RETENTION_DAYS', '14');
+        set_mock_env_var('MY_SPECIAL_PLUGIN_LOGGER_RETENTION_DAYS', '14');
 
         $logger = new Logger(['component_name' => 'my-special-plugin']);
 
@@ -467,7 +467,7 @@ final class HooksTest extends TestCase
         $debugInfo = $logger->getDebugInfo();
 
         // Should use component-specific retention from environment
-        self::assertSame(14, $debugInfo['log_retention_days']);
+        self::assertSame(14, $debugInfo['retention_days']);
         self::assertFalse($debugInfo['logging_disabled']);
 
         // Verify hook was called with component-specific configuration
