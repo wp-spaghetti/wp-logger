@@ -105,8 +105,8 @@ use WpSpaghetti\WpLogger\Logger;
 // Configuration can come from environment variables via WP Env
 $logger = new Logger([
     'component_name' => 'my-plugin',
-    'log_retention_days' => 60, // Can be overridden by LOGGER_RETENTION_DAYS env var
-    'min_log_level' => 'info',  // Can be overridden by LOGGER_MIN_LEVEL env var
+    'retention_days' => 60, // Can be overridden by LOGGER_RETENTION_DAYS env var
+    'min_level' => 'info',  // Can be overridden by LOGGER_MIN_LEVEL env var
 ]);
 
 // Logging behavior:
@@ -133,7 +133,7 @@ class MyPlugin
     {
         $this->logger = new Logger([
             'component_name' => 'my-plugin',
-            'log_retention_days' => 30
+            'retention_days' => 30
         ]);
         
         add_action('init', [$this, 'init']);
@@ -175,21 +175,21 @@ $config = [
     'component_name' => 'my-plugin',
     
     // Optional: Days to keep log files (default: 30)
-    'log_retention_days' => 60,
+    'retention_days' => 60,
     
     // Optional: Minimum log level to record (default: 'debug')
-    'min_log_level' => 'info',
+    'min_level' => 'info',
     
     // Optional: Wonolog namespace (default: 'Inpsyde\Wonolog')
     'wonolog_namespace' => 'MyApp\Wonolog',
     
     // Optional: WordPress constant to disable logging
     // (default: auto-generated from component_name)
-    'disable_logging_constant' => 'MY_PLUGIN_DISABLE_LOGGING',
+    'disabled_constant' => 'MY_PLUGIN_LOGGER_DISABLED',
     
     // Optional: WordPress constant for retention days
     // (default: auto-generated from component_name)
-    'log_retention_constant' => 'MY_PLUGIN_LOG_RETENTION_DAYS'
+    'retention_days_constant' => 'MY_PLUGIN_LOGGER_RETENTION_DAYS'
 ];
 ```
 
@@ -204,17 +204,17 @@ LOGGER_DISABLED=false                  # Disable all logging
 LOGGER_WONOLOG_NAMESPACE=Inpsyde\Wonolog
 
 # Plugin-specific settings (higher priority)
-MY_PLUGIN_LOG_RETENTION_DAYS=60
-MY_PLUGIN_DISABLED=false
-MY_PLUGIN_MIN_LEVEL=warning
+MY_PLUGIN_LOGGER_RETENTION_DAYS=60
+MY_PLUGIN_LOGGER_DISABLED=false
+MY_PLUGIN_LOGGER_MIN_LEVEL=warning
 ```
 
 ### WordPress Constants (wp-config.php)
 
 ```php
 // Control logging behavior per plugin
-define('MY_PLUGIN_DISABLE_LOGGING', true);      // Disable all logging
-define('MY_PLUGIN_LOG_RETENTION_DAYS', 90);     // Keep logs for 90 days
+define('MY_PLUGIN_LOGGER_DISABLED', true);      // Disable all logging
+define('MY_PLUGIN_LOGGER_RETENTION_DAYS', 90);     // Keep logs for 90 days
 
 // Global WordPress debug (affects fallback behavior)
 define('WP_DEBUG', true);  // Forces error_log() usage in fallback mode
@@ -318,7 +318,7 @@ class MyAwesomePlugin
     {
         $this->logger = new Logger([
             'component_name' => 'my-awesome-plugin',
-            'log_retention_days' => 30
+            'retention_days' => 30
         ]);
         
         register_activation_hook(__FILE__, [$this, 'activate']);
@@ -360,7 +360,7 @@ use WpSpaghetti\WpLogger\Logger;
 
 $theme_logger = new Logger([
     'component_name' => get_template(),
-    'log_retention_days' => 14
+    'retention_days' => 14
 ]);
 
 // Log theme setup

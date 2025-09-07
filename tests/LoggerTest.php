@@ -58,15 +58,15 @@ final class LoggerTest extends TestCase
     {
         $logger = new Logger([
             'component_name' => 'test-plugin',
-            'log_retention_days' => 60,
+            'retention_days' => 60,
         ]);
 
         $config = $logger->getConfig();
 
         self::assertSame('test-plugin', $config['component_name']);
-        self::assertSame(60, $config['log_retention_days']);
-        self::assertSame('TEST_PLUGIN_DISABLE_LOGGING', $config['disable_logging_constant']);
-        self::assertSame('TEST_PLUGIN_LOG_RETENTION_DAYS', $config['log_retention_constant']);
+        self::assertSame(60, $config['retention_days']);
+        self::assertSame('TEST_PLUGIN_LOGGER_DISABLED', $config['disabled_constant']);
+        self::assertSame('TEST_PLUGIN_LOGGER_RETENTION_DAYS', $config['retention_days_constant']);
     }
 
     public function testEnvironmentBasedConfiguration(): void
@@ -82,8 +82,8 @@ final class LoggerTest extends TestCase
         $config = $logger->getConfig();
 
         self::assertSame('env-plugin', $config['component_name']);
-        self::assertSame(45, $config['log_retention_days']);
-        self::assertSame('warning', $config['min_log_level']);
+        self::assertSame(45, $config['retention_days']);
+        self::assertSame('warning', $config['min_level']);
         self::assertSame('Custom\Logger', $config['wonolog_namespace']);
     }
 
@@ -91,7 +91,7 @@ final class LoggerTest extends TestCase
     {
         // Set component-specific environment variables (should override global ones)
         set_mock_env_var('LOGGER_RETENTION_DAYS', '30'); // Global
-        set_mock_env_var('MY_PLUGIN_LOG_RETENTION_DAYS', '90'); // Plugin-specific
+        set_mock_env_var('MY_PLUGIN_LOGGER_RETENTION_DAYS', '90'); // Plugin-specific
 
         $logger = new Logger([
             'component_name' => 'my-plugin',
@@ -100,23 +100,23 @@ final class LoggerTest extends TestCase
         $config = $logger->getConfig();
 
         // Should use component-specific value
-        self::assertSame(90, $config['log_retention_days']);
+        self::assertSame(90, $config['retention_days']);
     }
 
     public function testConfigurationPriority(): void
     {
         // Set multiple sources of configuration
         set_mock_env_var('LOGGER_RETENTION_DAYS', '30'); // Environment
-        \define('TEST_PLUGIN_LOG_RETENTION_DAYS', 60); // WordPress constant
+        \define('TEST_PLUGIN_LOGGER_RETENTION_DAYS', 60); // WordPress constant
 
         $logger = new Logger([
             'component_name' => 'test-plugin',
-            'log_retention_days' => 90, // Config array
+            'retention_days' => 90, // Config array
         ]);
 
         // Environment should override config array
         $debugInfo = $logger->getDebugInfo();
-        self::assertSame(30, $debugInfo['log_retention_days']);
+        self::assertSame(30, $debugInfo['retention_days']);
     }
 
     public function testDefaultConfiguration(): void
@@ -126,9 +126,9 @@ final class LoggerTest extends TestCase
         $config = $logger->getConfig();
 
         self::assertSame('test', $config['component_name']);
-        self::assertSame(30, $config['log_retention_days']); // Default value
+        self::assertSame(30, $config['retention_days']); // Default value
         self::assertSame('Inpsyde\Wonolog', $config['wonolog_namespace']);
-        self::assertSame('debug', $config['min_log_level']);
+        self::assertSame('debug', $config['min_level']);
     }
 
     public function testRequiredPluginNameValidation(): void
@@ -170,7 +170,7 @@ final class LoggerTest extends TestCase
         // Set minimum level to warning
         $logger = new Logger([
             'component_name' => 'test-plugin',
-            'min_log_level' => 'warning',
+            'min_level' => 'warning',
         ]);
 
         $logger->debug('This should be filtered out');
@@ -322,15 +322,15 @@ final class LoggerTest extends TestCase
 
         $logger = new Logger([
             'component_name' => 'debug-test',
-            'log_retention_days' => 45,
+            'retention_days' => 45,
         ]);
 
         $debugInfo = $logger->getDebugInfo();
 
         // Test basic configuration
         self::assertArrayHasKey('component_name', $debugInfo);
-        self::assertArrayHasKey('min_log_level', $debugInfo);
-        self::assertArrayHasKey('log_retention_days', $debugInfo);
+        self::assertArrayHasKey('min_level', $debugInfo);
+        self::assertArrayHasKey('retention_days', $debugInfo);
 
         // Test environment information
         self::assertArrayHasKey('environment_type', $debugInfo);
@@ -347,7 +347,7 @@ final class LoggerTest extends TestCase
 
         // Test values
         self::assertSame('debug-test', $debugInfo['component_name']);
-        self::assertSame('warning', $debugInfo['min_log_level']);
+        self::assertSame('warning', $debugInfo['min_level']);
         self::assertSame('staging', $debugInfo['environment_type']);
         self::assertTrue($debugInfo['is_staging']);
         self::assertFalse($debugInfo['is_production']);
@@ -381,7 +381,7 @@ final class LoggerTest extends TestCase
         self::assertIsString($readmeContent);
         self::assertStringContainsString('Environment Variables', $readmeContent);
         self::assertStringContainsString('LOGGER_DISABLED', $readmeContent);
-        self::assertStringContainsString('PROTECTION_FILES_TEST_DISABLED', $readmeContent);
+        self::assertStringContainsString('PROTECTION_FILES_TEST_LOGGER_DISABLED', $readmeContent);
         self::assertStringContainsString('Environment: production', $readmeContent);
     }
 
@@ -419,37 +419,37 @@ final class LoggerTest extends TestCase
     public function testCustomRetentionDays(): void
     {
         // Define custom retention via environment
-        set_mock_env_var('TEST_PLUGIN_LOG_RETENTION_DAYS', '90');
+        set_mock_env_var('TEST_PLUGIN_LOGGER_RETENTION_DAYS', '90');
 
         $logger = new Logger(['component_name' => 'test_plugin']);
 
         $debugInfo = $logger->getDebugInfo();
-        self::assertSame(90, $debugInfo['log_retention_days']);
+        self::assertSame(90, $debugInfo['retention_days']);
     }
 
     public function testConstantNameGeneration(): void
     {
         // Test with various component name formats
         $testCases = [
-            'simple' => 'SIMPLE_DISABLE_LOGGING',
-            'with-dashes' => 'WITH_DASHES_DISABLE_LOGGING',
-            'with_underscores' => 'WITH_UNDERSCORES_DISABLE_LOGGING',
-            'mixed-format_test' => 'MIXED_FORMAT_TEST_DISABLE_LOGGING',
-            'numbers123' => 'NUMBERS123_DISABLE_LOGGING',
+            'simple' => 'SIMPLE_LOGGER_DISABLED',
+            'with-dashes' => 'WITH_DASHES_LOGGER_DISABLED',
+            'with_underscores' => 'WITH_UNDERSCORES_LOGGER_DISABLED',
+            'mixed-format_test' => 'MIXED_FORMAT_TEST_LOGGER_DISABLED',
+            'numbers123' => 'NUMBERS123_LOGGER_DISABLED',
         ];
 
         foreach ($testCases as $componentName => $expectedConstant) {
             $logger = new Logger(['component_name' => $componentName]);
             $config = $logger->getConfig();
 
-            self::assertSame($expectedConstant, $config['disable_logging_constant']);
+            self::assertSame($expectedConstant, $config['disabled_constant']);
         }
     }
 
     public function testLogCleanupWithEnvironmentRetention(): void
     {
         // Set environment retention
-        set_mock_env_var('CLEANUP_TEST_LOG_RETENTION_DAYS', '1'); // 1 day retention
+        set_mock_env_var('CLEANUP_TEST_LOGGER_RETENTION_DAYS', '1'); // 1 day retention
         set_wp_rand_result(1); // Force cleanup to run
 
         $logger = new Logger(['component_name' => 'cleanup-test']);
