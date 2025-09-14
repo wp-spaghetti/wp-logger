@@ -1,13 +1,17 @@
 ![PHP Version](https://img.shields.io/packagist/php-v/wp-spaghetti/wp-logger)
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/wp-spaghetti/wp-logger/total)
+![Packagist Downloads](https://img.shields.io/packagist/dt/wp-spaghetti/wp-logger)
+![Packagist Stars](https://img.shields.io/packagist/stars/wp-spaghetti/wp-logger)
 ![GitHub Actions Workflow Status](https://github.com/wp-spaghetti/wp-logger/actions/workflows/main.yml/badge.svg)
 ![Coverage Status](https://img.shields.io/codecov/c/github/wp-spaghetti/wp-logger)
+![Known Vulnerabilities](https://snyk.io/test/github/wp-spaghetti/wp-logger/badge.svg)
 ![GitHub Issues](https://img.shields.io/github/issues/wp-spaghetti/wp-logger)
-![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
 ![GitHub Release](https://img.shields.io/github/v/release/wp-spaghetti/wp-logger)
 ![License](https://img.shields.io/github/license/wp-spaghetti/wp-logger)
 <!--
+Qlty @see https://github.com/badges/shields/issues/11192
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/wp-spaghetti/wp-logger/total)
 ![Code Climate](https://img.shields.io/codeclimate/maintainability/wp-spaghetti/wp-logger)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
 -->
 
 # WP Logger
@@ -18,14 +22,14 @@ A comprehensive WordPress logging service with Wonolog integration, secure file 
 
 - **PSR-3 Compatibility**: Full implementation of PSR-3 LoggerInterface for standardized logging
 - **Environment-Based Configuration**: Powered by [WP Env](https://github.com/wp-spaghetti/wp-env) for flexible configuration management
-- **Wonolog Integration**: Automatic detection and seamless integration with Inpsyde Wonolog
+- **Wonolog Integration**: Automatic detection and seamless integration with [Wonolog](https://github.com/inpsyde/Wonolog)
 - **Secure File Logging**: WordPress.org compliant fallback logging with multi-server protection
 - **Multi-Server Protection**: Built-in protection files for Apache, Nginx, IIS, LiteSpeed, and more
 - **Configurable Log Levels**: Minimum log level filtering with environment variable support
 - **Intelligent Log Retention**: Environment-specific retention policies with automatic cleanup
 - **Hook System**: Extensible architecture with WordPress hooks for customization
 - **Debug Mode Support**: Intelligent handling of development vs production environments
-- **Zero Dependencies**: Works with or without external logging libraries
+- **Zero Dependencies**: Works with or without external logging libraries, with automatic fallback to native file-based logging
 - **Plugin Isolation**: Each plugin/theme gets independent log directories and settings
 
 ## Design Philosophy: Mixed Types for Maximum Flexibility
@@ -34,7 +38,7 @@ WP Logger intentionally uses `mixed` type hints throughout its API, diverging fr
 
 ### Why Mixed Types?
 
-**Wonolog Compatibility**: Our primary target, [Inpsyde Wonolog](https://github.com/inpsyde/Wonolog), accepts truly mixed types natively (Throwable, Arrays, Objects, WP_Error):
+**Wonolog Compatibility**: Our primary target, [Wonolog](https://github.com/inpsyde/Wonolog), accepts truly mixed types natively (Throwable, Arrays, Objects, WP_Error):
 ```php
 // Wonolog native usage
 do_action('wonolog.log', $exception);        // ✅ Throwable
@@ -613,7 +617,7 @@ var_dump($debugInfo);
 - WordPress 5.0 or higher
 - PSR Log 1.0|2.0|3.0 for interface compatibility
 - [WP Env](https://github.com/wp-spaghetti/wp-env) 2.0+ for environment management
-- Optional: [Inpsyde Wonolog](https://github.com/inpsyde/wonolog) for advanced logging
+- Optional: [Wonolog](https://github.com/inpsyde/wonolog) for advanced logging
 
 ## Changelog
 
