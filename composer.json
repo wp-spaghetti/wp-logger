@@ -77,23 +77,5 @@
         "security": "@check --tasks=securitychecker_roave",
         "test": "@check --tasks=phpunit",
         "test:coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml"
-    },
-    "archive": {
-        "exclude": [
-            ".github/*",
-            "docs/*",
-            "examples/*",
-            "tests/*",
-            ".gitignore",
-            ".php-cs-fixer.dist.php",
-            ".releaserc.json",
-            "codecov.yml",
-            "commitlint.config.mjs",
-            "grumphp.yml.dist",
-            "phpunit*.xml*",
-            "phpstan.neon.dist",
-            "psalm.xml.dist",
-            "rector.php"
-        ]
     }
 }
