@@ -2,7 +2,9 @@ name: Release
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'support/*'
 
 permissions:
   contents: write
@@ -28,31 +30,20 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: 'lts/*'
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v5
+        id: semantic
         with:
-          php-version: '8.4'
-          extensions: mbstring, intl
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
-
-      - name: Run tests
-        run: composer test
-
-      - name: Install semantic-release
-        run: |
-          npm install -g semantic-release@latest
-          npm install -g @semantic-release/changelog@latest
-          npm install -g @semantic-release/git@latest
-          npm install -g @semantic-release/github@latest
-          npm install -g conventional-changelog-conventionalcommits@latest
-
-      - name: Release
+          # https://github.com/semantic-release/commit-analyzer/issues/65
+          extra_plugins: |
+            semantic-release-unsquash@latest
+            @semantic-release/changelog@latest
+            @semantic-release/git@latest
+            conventional-changelog-conventionalcommits@latest
         env:
           # Use the token with bypass permissions
           GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
@@ -60,27 +51,10 @@ jobs:
           GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # Disable GrumPHP git hooks for semantic-release
-          ./vendor/bin/grumphp git:deinit
-          npx semantic-release
-
-      - name: Get released version
-        id: version
-        run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -n "$VERSION" ]; then
-            echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
-            echo "released=true" >> $GITHUB_OUTPUT
-          else
-            echo "released=false" >> $GITHUB_OUTPUT
-          fi
 
       # Packagist update is automatic if GitHub app is configured
       # Uncomment the following step only if manual trigger is needed
       # - name: Trigger Packagist update
-      #   if: steps.version.outputs.released == 'true'
+      #   if: steps.semantic.outputs.new_release_published == 'true'
       #   run: |
       #     curl -XPOST -H'content-type:application/json' 'https://packagist.org/api/update-package?username=${{ secrets.PACKAGIST_USERNAME }}&apiToken=${{ secrets.PACKAGIST_TOKEN }}' -d'{"repository":{"url":"https://packagist.org/packages/wp-spaghetti/wp-logger"}}'
