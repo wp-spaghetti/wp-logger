@@ -43,6 +43,8 @@ $config = (new Config())
         '@PHP80Migration' => true,
         '@PHP80Migration:risky' => true,
         'header_comment' => ['header' => $header],
+        // Avoid breaking @psalm-suppress
+        'phpdoc_to_comment' => ['ignored_tags' => ['psalm-suppress']],
     ])
     ->setFinder($finder)
 ;

@@ -24,6 +24,12 @@
         "source": "https://github.com/wp-spaghetti/wp-logger",
         "docs": "https://github.com/wp-spaghetti/wp-logger#readme"
     },
+    "funding": [
+        {
+            "type": "custom",
+            "url": "https://buymeacoff.ee/frugan"
+        }
+    ],
     "require": {
         "php": ">=8.0",
         "psr/log": "^1.0|^2.0|^3.0",
@@ -63,19 +69,31 @@
         "sort-packages": true
     },
     "scripts": {
-        "analysis": "grumphp run --tasks=phpstan",
-        "check": "grumphp run",
-        "ci": "grumphp run --no-interaction",
-        "lint": "grumphp run --tasks=phpcsfixer,phplint,phpstan,rector",
-        "quality": "grumphp run --tasks=phpmnd,phpparser",
-        "security": "grumphp run --tasks=securitychecker_roave",
-        "test": "grumphp run --tasks=phpunit",
-        "test-coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml"
+        "analysis": "@check --tasks=phpstan",
+        "check": "@php -d max_execution_time=0 -d memory_limit=-1 -f ./vendor/bin/grumphp -- run",
+        "ci": "@check --no-interaction",
+        "lint": "@check --tasks=phpcsfixer,phplint,phpstan,rector",
+        "quality": "@check --tasks=phpmnd,phpparser",
+        "security": "@check --tasks=securitychecker_roave",
+        "test": "@check --tasks=phpunit",
+        "test:coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml"
     },
-    "funding": [
-        {
-            "type": "custom",
-            "url": "https://buymeacoff.ee/frugan"
-        }
-    ]
+    "archive": {
+        "exclude": [
+            ".github/*",
+            "docs/*",
+            "examples/*",
+            "tests/*",
+            ".gitignore",
+            ".php-cs-fixer.dist.php",
+            ".releaserc.json",
+            "codecov.yml",
+            "commitlint.config.mjs",
+            "grumphp.yml.dist",
+            "phpunit*.xml*",
+            "phpstan.neon.dist",
+            "psalm.xml.dist",
+            "rector.php"
+        ]
+    }
 }
