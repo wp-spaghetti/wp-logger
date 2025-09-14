@@ -128,11 +128,6 @@ jobs:
       - name: Run code quality checks
         run: composer quality
 
-      - name: Run Qlty code analysis
-        uses: qltysh/qlty@v1
-        env:
-          QLTY_TOKEN: ${{ secrets.QLTY_TOKEN }}
-
   security:
     name: Security
     runs-on: ubuntu-latest
