@@ -2,7 +2,7 @@ name: Mark stale issues and pull requests
 
 on:
   schedule:
-  - cron: '0 0 * * 0'  # Weekly on Sunday
+  - cron: '0 0 * * 0' # Weekly on Sunday
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
       pull-requests: write
 
     steps:
-    - uses: actions/stale@v9
+    - uses: actions/stale@v10
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         

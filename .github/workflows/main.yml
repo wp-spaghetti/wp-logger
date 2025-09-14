@@ -1,10 +1,24 @@
-name: CI/CD
+name: CI
 
 on:
-  push:
-    branches: [ main, develop ]
+  # Run tests on PR
   pull_request:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+      - 'support/*'
+
+  # Optional: Only for post-merge verification (after PR is already approved).
+  # Note: PR merge is technically a "push", so this trigger will fire after successful merges.
+  # In a proper PR/GitHub workflow, protected branches should only receive PR merges.
+  # This trigger only makes sense for:
+  # - Hotfixes that bypass PR workflow in emergencies
+  # - Unprotected branches that still accept direct pushes (not recommended)
+  # - Post-merge verification (redundant if PR tests passed)
+  # Remove this entirely if all branches are properly protected with required PR reviews.
+  # push:
+  #   branches:
+  #     - develop
 
 jobs:
   tests:
@@ -60,9 +74,9 @@ jobs:
             composer test
           fi
 
-      - name: Run tests with coverage
+      - name: Run tests with coverage (PHP 8.4)
         if: matrix.php == '8.4'
-        run: composer test-coverage
+        run: composer test:coverage
       
       - name: Upload coverage to Codecov
         if: matrix.php == '8.4'
@@ -70,6 +84,23 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
+          fail_ci_if_error: true
+
+      # Alternative
+      - name: Upload coverage to Qlty
+        if: matrix.php == '8.4'
+        uses: qltysh/qlty-action/coverage@v2
+        with:
+          token: ${{ secrets.QLTY_TOKEN }}
+          files: ./coverage.xml
+
+      # Alternative
+      #- name: Upload coverage to Scrutinizer
+      #  if: matrix.php == '8.4'
+      #  uses: scrutinizer-ci/ocular@v1
+      #  with:
+      #    access-token: ${{ secrets.SCRUTINIZER_ACCESS_TOKEN }}
+      #    coverage-file: ./coverage.xml
 
   code-quality:
     name: Code Quality
@@ -94,8 +125,51 @@ jobs:
       - name: Run static analysis
         run: composer analysis
 
+      - name: Run code quality checks
+        run: composer quality
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
       - name: Run security check
         run: composer security
 
-      - name: Run code quality
-        run: composer quality
+      # Security Compliance Note for Snyk Action:
+      # Snyk requires using full commit SHA instead of version tags or @master/@main 
+      # for security compliance and to prevent supply chain attacks.
+      # 
+      # To update SHA hash:
+      # - Visit: https://github.com/snyk/actions/commits/master/
+      # - Copy the full 40-character commit SHA from the latest commit
+      #
+      # SARIF Upload Benefits:
+      # - Integrates vulnerability results directly into GitHub's Security tab
+      # - Provides detailed vulnerability information in pull request reviews
+      # - Enables security-focused code review workflow
+      # - Creates security alerts for repository maintainers
+      - name: Run Snyk to check for vulnerabilities (PHP)
+        continue-on-error: true
+        uses: snyk/actions/php@e2221410bff24446ba09102212d8bc75a567237d
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --sarif-file-output=snyk.sarif --file=composer.lock
+          
+      - name: Upload Snyk results to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif

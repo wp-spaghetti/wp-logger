@@ -13,7 +13,11 @@ declare(strict_types=1);
 
 // Define WordPress constants for testing
 if (!defined('ABSPATH')) {
-    define('ABSPATH', '/tmp/');
+    define('ABSPATH', '/tmp/wordpress/');
+}
+
+if (!defined('WPINC')) {
+    define('WPINC', 'wp-includes');
 }
 
 if (!defined('WP_DEBUG')) {
@@ -33,7 +37,7 @@ if (!defined('DAY_IN_SECONDS')) {
 }
 
 // Autoload Composer dependencies
-require_once __DIR__.'/../vendor/autoload.php';
+require_once dirname(__DIR__).'/vendor/autoload.php';
 
 // Global test variables for mocking WordPress functions
 // @var array<string, mixed>
