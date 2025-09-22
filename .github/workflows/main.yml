@@ -79,7 +79,7 @@ jobs:
         run: composer test:coverage
       
       - name: Upload coverage to Codecov
-        if: matrix.php == '8.4'
+        if: matrix.php == '8.4' && secrets.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -88,15 +88,16 @@ jobs:
 
       # Alternative
       - name: Upload coverage to Qlty
-        if: matrix.php == '8.4'
+        if: matrix.php == '8.4' && secrets.QLTY_TOKEN != ''
         uses: qltysh/qlty-action/coverage@v2
         with:
           token: ${{ secrets.QLTY_TOKEN }}
           files: ./coverage.xml
+        continue-on-error: true
 
       # Alternative
       #- name: Upload coverage to Scrutinizer
-      #  if: matrix.php == '8.4'
+      #  if: matrix.php == '8.4' && secrets.SCRUTINIZER_ACCESS_TOKEN != ''
       #  uses: scrutinizer-ci/ocular@v1
       #  with:
       #    access-token: ${{ secrets.SCRUTINIZER_ACCESS_TOKEN }}
@@ -162,6 +163,7 @@ jobs:
       # - Enables security-focused code review workflow
       # - Creates security alerts for repository maintainers
       - name: Run Snyk to check for vulnerabilities (PHP)
+        if: secrets.SNYK_TOKEN != ''
         continue-on-error: true
         uses: snyk/actions/php@e2221410bff24446ba09102212d8bc75a567237d
         env:
@@ -170,6 +172,7 @@ jobs:
           args: --severity-threshold=high --sarif-file-output=snyk.sarif --file=composer.lock
           
       - name: Upload Snyk results to GitHub Code Scanning
+        if: hashFiles('snyk.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk.sarif

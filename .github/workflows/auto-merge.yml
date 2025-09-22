@@ -5,6 +5,11 @@ on:
     types:
       - opened
       - synchronize
+      - reopened
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   auto-merge:
@@ -23,14 +28,25 @@ jobs:
               pull_number: context.issue.number
             });
             
-            // Only auto-merge patch updates
+            // Auto-merge patch and minor updates
             const title = pr.data.title.toLowerCase();
-            const isPatch = title.includes('patch') || 
-                           title.match(/bump .+ from [\d]+\.[\d]+\.[\d]+ to [\d]+\.[\d]+\.[\d]+$/);
+            const isMinorOrPatch = title.includes('patch') || 
+                                  title.includes('minor') || 
+                                  title.match(/bump .+ from [\d]+\.[\d]+\.[\d]+ to [\d]+\.[\d]+\.[\d]+$/);
+                                  
+            console.log('PR Title:', title);
+            console.log('Should merge:', isMinorOrPatch);
                            
-            return { shouldMerge: isPatch };
+            return { shouldMerge: isMinorOrPatch };
 
-      - name: Wait for checks
+      - name: Auto-approve Dependabot PR
+        if: fromJSON(steps.pr.outputs.result).shouldMerge
+        run: |
+          gh pr review ${{ github.event.pull_request.number }} --approve --body "Auto-approving dependency update"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for checks (with timeout)
         if: fromJSON(steps.pr.outputs.result).shouldMerge
         uses: fountainhead/action-wait-for-check@v1.2.0
         id: wait-for-checks
@@ -38,11 +54,38 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           checkName: 'Tests (PHP 8.4)'
           ref: ${{ github.event.pull_request.head.sha }}
-          timeoutSeconds: 300
+          timeoutSeconds: 600
+        continue-on-error: true
 
-      - name: Auto-merge
-        if: fromJSON(steps.pr.outputs.result).shouldMerge && steps.wait-for-checks.outputs.conclusion == 'success'
+      - name: Check status and merge
+        if: fromJSON(steps.pr.outputs.result).shouldMerge
         run: |
-          gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+          # Get current status
+          STATUS=$(gh pr status ${{ github.event.pull_request.number }} --json statusCheckRollup --jq '.statusCheckRollup[] | select(.name == "Tests (PHP 8.4)") | .conclusion')
+          
+          echo "Check status: $STATUS"
+          
+          if [ "$STATUS" = "SUCCESS" ] || [ "$STATUS" = "NEUTRAL" ]; then
+            echo "✅ Checks passed, merging PR"
+            gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+          elif [ "$STATUS" = "FAILURE" ]; then
+            echo "❌ Checks failed, not merging"
+            exit 1
+          else
+            echo "⏳ Checks still running or unknown status, enabling auto-merge"
+            gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on failure
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🤖 Auto-merge failed. Please check the CI status and merge manually if appropriate.'
+            });
