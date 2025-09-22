@@ -11,10 +11,10 @@ updates:
     assignees:
       - "frugan-dev"
     commit-message:
-      prefix: "deps"
+      prefix: "chore"
       include: "scope"
     labels:
-      - "dependencies"
+      - "area: dependencies"
 
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
@@ -27,8 +27,8 @@ updates:
     assignees:
       - "frugan-dev"
     commit-message:
-      prefix: "ci"
+      prefix: "chore"
       include: "scope"
     labels:
-      - "dependencies"
-      - "github-actions"
+      - "area: dependencies"
+      - "area: ci/cd"
