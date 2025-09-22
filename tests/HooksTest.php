@@ -504,4 +504,131 @@ final class HooksTest extends TestCase
         self::assertNotContains('info', $loggedLevels);
         self::assertNotContains('warning', $loggedLevels);
     }
+
+    public function testPsrLogNamespaceHookWithEnvironment(): void
+    {
+        // Set environment PSR Log namespace
+        set_mock_env_var('LOGGER_PSR_LOG_NAMESPACE', 'CustomApp\Psr\Log');
+
+        $logger = new Logger(['component_name' => 'test-plugin']);
+
+        // This will trigger the hook internally when debug info is requested
+        $logger->getDebugInfo();
+
+        $appliedFilters = get_applied_filters();
+
+        // Check if the hook was called with environment value
+        $namespaceFilterCalled = false;
+        foreach ($appliedFilters as $appliedFilter) {
+            if ('wp_logger_psr_log_namespace' === $appliedFilter['hook']) {
+                $namespaceFilterCalled = true;
+                self::assertSame('CustomApp\Psr\Log', $appliedFilter['value']);
+
+                break;
+            }
+        }
+
+        self::assertTrue($namespaceFilterCalled, 'wp_logger_psr_log_namespace filter should be called');
+    }
+
+    public function testCustomPsrLogNamespaceFromEnvironment(): void
+    {
+        // Set custom namespace via environment
+        set_mock_env_var('LOGGER_PSR_LOG_NAMESPACE', 'MyCustomApp\PsrLog');
+
+        $logger = new Logger(['component_name' => 'test-plugin']);
+
+        $debugInfo = $logger->getDebugInfo();
+
+        $appliedFilters = get_applied_filters();
+
+        // Check that the environment namespace was passed through the filter
+        $namespaceFilter = null;
+        foreach ($appliedFilters as $appliedFilter) {
+            if ('wp_logger_psr_log_namespace' === $appliedFilter['hook']) {
+                $namespaceFilter = $appliedFilter;
+
+                break;
+            }
+        }
+
+        self::assertNotNull($namespaceFilter);
+        self::assertSame('MyCustomApp\PsrLog', $namespaceFilter['value']);
+        self::assertSame('MyCustomApp\PsrLog', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testHookParameterConsistencyWithEnvironmentAndPsrLog(): void
+    {
+        // Set environment context including PSR Log namespace
+        set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
+        set_mock_env_var('LOGGER_WONOLOG_NAMESPACE', 'Production\Logger');
+        set_mock_env_var('LOGGER_PSR_LOG_NAMESPACE', 'Production\Psr\Log');
+
+        $logger = new Logger(['component_name' => 'test-plugin']);
+        $context = ['user' => 'admin', 'ip' => '192.168.1.1'];
+
+        $logger->alert('Test alert message', $context);
+
+        $appliedFilters = get_applied_filters();
+
+        // Check that override hook receives correct parameters with environment config
+        $overrideFilter = null;
+        foreach ($appliedFilters as $appliedFilter) {
+            if ('wp_logger_override_log' === $appliedFilter['hook']) {
+                $overrideFilter = $appliedFilter;
+
+                break;
+            }
+        }
+
+        self::assertNotNull($overrideFilter);
+
+        // Check config contains environment-based values including PSR Log namespace
+        $config = $overrideFilter['args'][3];
+        self::assertIsArray($config);
+        self::assertArrayHasKey('wonolog_namespace', $config);
+        self::assertArrayHasKey('psr_log_namespace', $config);
+        self::assertSame('Production\Logger', $config['wonolog_namespace']);
+        self::assertSame('Production\Psr\Log', $config['psr_log_namespace']);
+    }
+
+    public function testPluginSpecificPsrLogEnvironmentHooks(): void
+    {
+        // Set component-specific PSR Log environment variables
+        set_mock_env_var('MY_SPECIAL_PLUGIN_LOGGER_PSR_LOG_NAMESPACE', 'MySpecialPlugin\Psr\Log');
+
+        $logger = new Logger(['component_name' => 'my-special-plugin']);
+
+        // Trigger logging to test environment-based configuration
+        $logger->warning('Plugin-specific PSR Log configuration test');
+
+        $debugInfo = $logger->getDebugInfo();
+
+        // Should use component-specific PSR Log namespace from environment
+        self::assertSame('MySpecialPlugin\Psr\Log', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testExpectedPsrLogHooks(): void
+    {
+        $expectedHooks = [
+            'wp_logger_wonolog_namespace',
+            'wp_logger_psr_log_namespace', // New hook
+            'wp_logger_wonolog_prefix',
+            'wp_logger_wonolog_action',
+            'wp_logger_override_log',
+            'wp_logger_logged',
+            'wp_logger_fallback',
+        ];
+
+        foreach ($expectedHooks as $expectedHook) {
+            // Check that hook names are properly prefixed
+            self::assertStringStartsWith('wp_logger_', $expectedHook);
+
+            // Check that hook names use underscores (WordPress convention)
+            self::assertMatchesRegularExpression('/^[a-z_]+$/', $expectedHook);
+
+            // Check that hook names are not too long (WordPress recommendation)
+            self::assertLessThanOrEqual(50, \strlen($expectedHook));
+        }
+    }
 }

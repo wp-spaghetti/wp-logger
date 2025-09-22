@@ -74,6 +74,7 @@
         "ci": "@check --no-interaction",
         "lint": "@check --tasks=phpcsfixer,phplint,phpstan,rector",
         "quality": "@check --tasks=phpmnd,phpparser",
+        "rector": "@check --tasks=rector",
         "security": "@check --tasks=securitychecker_roave",
         "test": "@check --tasks=phpunit",
         "test:coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml"

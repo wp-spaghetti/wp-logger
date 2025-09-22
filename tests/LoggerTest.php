@@ -493,6 +493,126 @@ final class LoggerTest extends TestCase
         self::assertFalse($debugInfo['is_debug']);
     }
 
+    public function testPsrLogNamespaceConfiguration(): void
+    {
+        // Test default PSR Log namespace
+        $logger = new Logger(['component_name' => 'test-plugin']);
+
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame('Psr\Log', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testCustomPsrLogNamespaceFromConfig(): void
+    {
+        $logger = new Logger([
+            'component_name' => 'test-plugin',
+            'psr_log_namespace' => 'MyPlugin\Vendor\Psr\Log',
+        ]);
+
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame('MyPlugin\Vendor\Psr\Log', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testPsrLogNamespaceFromEnvironment(): void
+    {
+        // Set global environment variable
+        set_mock_env_var('LOGGER_PSR_LOG_NAMESPACE', 'Custom\Psr\Log');
+
+        $logger = new Logger(['component_name' => 'test-plugin']);
+
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame('Custom\Psr\Log', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testPluginSpecificPsrLogNamespace(): void
+    {
+        // Set component-specific environment variable (should override global one)
+        set_mock_env_var('LOGGER_PSR_LOG_NAMESPACE', 'Global\Psr\Log'); // Global
+        set_mock_env_var('MY_PLUGIN_LOGGER_PSR_LOG_NAMESPACE', 'MyPlugin\Vendor\Psr\Log'); // Plugin-specific
+
+        $logger = new Logger(['component_name' => 'my-plugin']);
+
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame('MyPlugin\Vendor\Psr\Log', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testPsrLogNamespaceConfigurationPriority(): void
+    {
+        // Test configuration priority: Plugin-specific env > Global env > Config array > Defaults
+        set_mock_env_var('LOGGER_PSR_LOG_NAMESPACE', 'Global\Psr\Log'); // Environment (higher priority)
+
+        $logger = new Logger([
+            'component_name' => 'test-plugin',
+            'psr_log_namespace' => 'Config\Psr\Log', // Config array (lower priority)
+        ]);
+
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame('Global\Psr\Log', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testPsrLogCacheRefresh(): void
+    {
+        $logger = new Logger([
+            'component_name' => 'test-plugin',
+            'psr_log_namespace' => 'Initial\Psr\Log',
+        ]);
+
+        // Initial namespace
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame('Initial\Psr\Log', $debugInfo['psr_log_namespace']);
+
+        // Refresh cache (simulates runtime namespace change)
+        $logger->refreshPsrLogCache();
+
+        // Should still return the same value since config hasn't changed
+        $debugInfo = $logger->getDebugInfo();
+        self::assertSame('Initial\Psr\Log', $debugInfo['psr_log_namespace']);
+    }
+
+    public function testPsrLogLevelFilteringWithCustomNamespace(): void
+    {
+        // Test that minimum level filtering works with custom PSR Log namespace
+        $logger = new Logger([
+            'component_name' => 'test-plugin',
+            'psr_log_namespace' => 'Custom\Psr\Log',
+            'min_level' => 'warning',
+        ]);
+
+        $logger->debug('Debug message');     // Should be filtered out
+        $logger->info('Info message');       // Should be filtered out
+        $logger->warning('Warning message'); // Should be logged
+        $logger->error('Error message');     // Should be logged
+
+        $actions = get_triggered_actions();
+        $loggedActions = array_filter($actions, static fn (array $action): bool => 'wp_logger_logged' === $action['hook']);
+
+        // Should only have 2 logged actions (warning and error)
+        self::assertCount(2, $loggedActions);
+    }
+
+    public function testProtectionFilesIncludePsrLogNamespace(): void
+    {
+        // Set custom PSR Log namespace
+        set_mock_env_var('WP_ENVIRONMENT_TYPE', 'production');
+        set_mock_env_var('WP_DEBUG', 'false');
+
+        $logger = new Logger([
+            'component_name' => 'test-plugin',
+            'psr_log_namespace' => 'MyPlugin\Vendor\Psr\Log',
+        ]);
+
+        $logger->info('Create protection files');
+
+        $logDir = $this->testLogDir.'/test-plugin/logs';
+
+        // Check README includes PSR Log namespace information
+        $readmeContent = file_get_contents($logDir.'/README');
+        self::assertIsString($readmeContent);
+        self::assertStringContainsString('PSR Log namespace: MyPlugin\Vendor\Psr\Log', $readmeContent);
+        self::assertStringContainsString('LOGGER_PSR_LOG_NAMESPACE', $readmeContent);
+        self::assertStringContainsString('TEST_PLUGIN_LOGGER_PSR_LOG_NAMESPACE', $readmeContent);
+    }
+
     /**
      * Recursively remove directory.
      */

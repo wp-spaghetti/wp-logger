@@ -185,7 +185,11 @@ $config = [
     'min_level' => 'info',
     
     // Optional: Wonolog namespace (default: 'Inpsyde\Wonolog')
-    'wonolog_namespace' => 'MyApp\Wonolog',
+    'wonolog_namespace' => 'MyPlugin\Vendor\Wonolog',
+    
+    // Optional: PSR Log namespace (default: 'Psr\Log')
+    // Useful for Mozart-isolated dependencies
+    'psr_log_namespace' => 'MyPlugin\Vendor\Psr\Log',
     
     // Optional: WordPress constant to disable logging
     // (default: auto-generated from component_name)
@@ -201,16 +205,18 @@ $config = [
 
 ```bash
 # Global logger settings
-LOGGER_COMPONENT_NAME=my-plugin        # Plugin/Theme identifier
-LOGGER_RETENTION_DAYS=30               # Log retention period
-LOGGER_MIN_LEVEL=info                  # Minimum log level
-LOGGER_DISABLED=false                  # Disable all logging
-LOGGER_WONOLOG_NAMESPACE=Inpsyde\Wonolog
+LOGGER_COMPONENT_NAME=my-plugin          # Plugin/Theme identifier
+LOGGER_RETENTION_DAYS=30                 # Log retention period
+LOGGER_MIN_LEVEL=info                    # Minimum log level
+LOGGER_DISABLED=false                    # Disable all logging
+LOGGER_WONOLOG_NAMESPACE=Inpsyde\Wonolog # Wonolog namespace
+LOGGER_PSR_LOG_NAMESPACE=Psr\Log         # PSR Log namespace
 
 # Plugin-specific settings (higher priority)
 MY_PLUGIN_LOGGER_RETENTION_DAYS=60
-MY_PLUGIN_LOGGER_DISABLED=false
 MY_PLUGIN_LOGGER_MIN_LEVEL=warning
+MY_PLUGIN_LOGGER_DISABLED=false
+MY_PLUGIN_LOGGER_PSR_LOG_NAMESPACE=MyPlugin\Vendor\Psr\Log
 ```
 
 ### WordPress Constants (wp-config.php)
@@ -218,7 +224,7 @@ MY_PLUGIN_LOGGER_MIN_LEVEL=warning
 ```php
 // Control logging behavior per plugin
 define('MY_PLUGIN_LOGGER_DISABLED', true);      // Disable all logging
-define('MY_PLUGIN_LOGGER_RETENTION_DAYS', 90);     // Keep logs for 90 days
+define('MY_PLUGIN_LOGGER_RETENTION_DAYS', 90);  // Keep logs for 90 days
 
 // Global WordPress debug (affects fallback behavior)
 define('WP_DEBUG', true);  // Forces error_log() usage in fallback mode
@@ -528,6 +534,11 @@ add_filter('wp_logger_override_log', function($result, $level, $message, $contex
 // Change Wonolog namespace
 add_filter('wp_logger_wonolog_namespace', function($namespace) {
     return 'MyApp\Logger';
+});
+
+// Change PSR Log namespace
+add_filter('wp_logger_psr_log_namespace', function($namespace) {
+    return 'MyPlugin\Vendor\Psr\Log';
 });
 
 // Modify Wonolog prefix

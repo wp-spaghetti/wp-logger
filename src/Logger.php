@@ -33,6 +33,7 @@ if (!\defined('ABSPATH')) {
  * - Environment-aware log levels and retention
  * - Configurable log retention and cleanup
  * - Hook-based customization system
+ * - Support for custom PSR Log namespace (Mozart compatibility)
  */
 class Logger implements LoggerInterface
 {
@@ -60,25 +61,10 @@ class Logger implements LoggerInterface
         'component_name' => null, // Required - can come from environment
         'retention_days' => self::DEFAULT_RETENTION_DAYS,
         'wonolog_namespace' => 'Inpsyde\Wonolog',
+        'psr_log_namespace' => 'Psr\Log',
         'min_level' => LogLevel::DEBUG,
         'disabled_constant' => null, // Will be auto-generated if not provided
         'retention_days_constant' => null,   // Will be auto-generated if not provided
-    ];
-
-    /**
-     * Log level priority mapping for minimum level filtering.
-     *
-     * @var array<string, int>
-     */
-    private const LOG_LEVEL_PRIORITIES = [
-        LogLevel::DEBUG => 0,
-        LogLevel::INFO => 1,
-        LogLevel::NOTICE => 2,
-        LogLevel::WARNING => 3,
-        LogLevel::ERROR => 4,
-        LogLevel::CRITICAL => 5,
-        LogLevel::ALERT => 6,
-        LogLevel::EMERGENCY => 7,
     ];
 
     /**
@@ -104,9 +90,21 @@ class Logger implements LoggerInterface
     private ?string $wonologNamespace = null;
 
     /**
+     * Cache for PSR Log namespace.
+     */
+    private ?string $psrLogNamespace = null;
+
+    /**
      * Cache for log directory path.
      */
     private ?string $logDirectoryCache = null;
+
+    /**
+     * Cache for PSR Log level priority mapping with custom namespace.
+     *
+     * @var null|array<string, int>
+     */
+    private ?array $psrLogLevels = null;
 
     /**
      * Initialize logger with configuration and environment integration.
@@ -115,6 +113,7 @@ class Logger implements LoggerInterface
      *                                     - component_name: string - Unique identifier (can come from LOGGER_COMPONENT_NAME env var)
      *                                     - retention_days: int (default: 30) - Days to keep log files
      *                                     - wonolog_namespace: string (default: 'Inpsyde\Wonolog') - Wonolog namespace
+     *                                     - psr_log_namespace: string (default: 'Psr\Log') - PSR Log namespace
      *                                     - min_level: string (default: 'debug') - Minimum log level to record
      *                                     - disabled_constant: string - WordPress constant name to disable logging
      *                                     - retention_days_constant: string - WordPress constant name for retention days
@@ -214,7 +213,7 @@ class Logger implements LoggerInterface
      */
     public function emergency($message, array $context = []): void
     {
-        $this->log(LogLevel::EMERGENCY, $message, $context);
+        $this->log($this->getPsrLogLevel('EMERGENCY'), $message, $context);
     }
 
     /**
@@ -224,7 +223,7 @@ class Logger implements LoggerInterface
      */
     public function alert($message, array $context = []): void
     {
-        $this->log(LogLevel::ALERT, $message, $context);
+        $this->log($this->getPsrLogLevel('ALERT'), $message, $context);
     }
 
     /**
@@ -234,7 +233,7 @@ class Logger implements LoggerInterface
      */
     public function critical($message, array $context = []): void
     {
-        $this->log(LogLevel::CRITICAL, $message, $context);
+        $this->log($this->getPsrLogLevel('CRITICAL'), $message, $context);
     }
 
     /**
@@ -245,7 +244,7 @@ class Logger implements LoggerInterface
      */
     public function error($message, array $context = []): void
     {
-        $this->log(LogLevel::ERROR, $message, $context);
+        $this->log($this->getPsrLogLevel('ERROR'), $message, $context);
     }
 
     /**
@@ -255,7 +254,7 @@ class Logger implements LoggerInterface
      */
     public function warning($message, array $context = []): void
     {
-        $this->log(LogLevel::WARNING, $message, $context);
+        $this->log($this->getPsrLogLevel('WARNING'), $message, $context);
     }
 
     /**
@@ -265,7 +264,7 @@ class Logger implements LoggerInterface
      */
     public function notice($message, array $context = []): void
     {
-        $this->log(LogLevel::NOTICE, $message, $context);
+        $this->log($this->getPsrLogLevel('NOTICE'), $message, $context);
     }
 
     /**
@@ -275,7 +274,7 @@ class Logger implements LoggerInterface
      */
     public function info($message, array $context = []): void
     {
-        $this->log(LogLevel::INFO, $message, $context);
+        $this->log($this->getPsrLogLevel('INFO'), $message, $context);
     }
 
     /**
@@ -285,7 +284,7 @@ class Logger implements LoggerInterface
      */
     public function debug($message, array $context = []): void
     {
-        $this->log(LogLevel::DEBUG, $message, $context);
+        $this->log($this->getPsrLogLevel('DEBUG'), $message, $context);
     }
 
     /**
@@ -314,6 +313,15 @@ class Logger implements LoggerInterface
     {
         $this->wonologActiveCache = null;
         $this->wonologNamespace = null;
+    }
+
+    /**
+     * Force refresh the PSR Log namespace cache.
+     */
+    public function refreshPsrLogCache(): void
+    {
+        $this->psrLogNamespace = null;
+        $this->psrLogLevels = null;
     }
 
     /**
@@ -348,6 +356,7 @@ class Logger implements LoggerInterface
             // Logging state
             'wonolog_active' => $this->isWonologActive(),
             'wonolog_namespace' => $this->getWonologNamespace(),
+            'psr_log_namespace' => $this->getPsrLogNamespace(),
             'logging_disabled' => $this->isLoggingDisabled(),
             'log_directory' => $this->getLogDirectory(),
 
@@ -420,6 +429,11 @@ class Logger implements LoggerInterface
             $config['wonolog_namespace'] = $globalWonolog;
         }
 
+        $globalPsrLog = Environment::get('LOGGER_PSR_LOG_NAMESPACE');
+        if ($globalPsrLog) {
+            $config['psr_log_namespace'] = $globalPsrLog;
+        }
+
         // Plugin-specific environment variables (highest priority)
         $componentRetention = Environment::getInt($this->buildConstantName('RETENTION_DAYS'));
         if ($componentRetention > 0) {
@@ -429,6 +443,11 @@ class Logger implements LoggerInterface
         $componentMinLevel = Environment::get($this->buildConstantName('MIN_LEVEL'));
         if ($componentMinLevel) {
             $config['min_level'] = $componentMinLevel;
+        }
+
+        $componentPsrLog = Environment::get($this->buildConstantName('PSR_LOG_NAMESPACE'));
+        if ($componentPsrLog) {
+            $config['psr_log_namespace'] = $componentPsrLog;
         }
     }
 
@@ -453,8 +472,10 @@ class Logger implements LoggerInterface
      */
     private function shouldLog(string $level): bool
     {
-        $minPriority = self::LOG_LEVEL_PRIORITIES[$this->config['min_level']] ?? 0;
-        $currentPriority = self::LOG_LEVEL_PRIORITIES[$level] ?? 0;
+        // Get the log levels with current PSR Log namespace
+        $logLevels = $this->getPsrLogLevels();
+        $minPriority = $logLevels[$this->config['min_level']] ?? 0;
+        $currentPriority = $logLevels[$level] ?? 0;
 
         return $currentPriority >= $minPriority;
     }
@@ -498,6 +519,93 @@ class Logger implements LoggerInterface
 
         // Ensure we always return a string
         return $this->wonologNamespace ?? $this->config['wonolog_namespace'];
+    }
+
+    /**
+     * Get PSR Log namespace with hook support.
+     */
+    private function getPsrLogNamespace(): string
+    {
+        if (null === $this->psrLogNamespace) {
+            if (\function_exists('apply_filters')) {
+                $result = apply_filters('wp_logger_psr_log_namespace', $this->config['psr_log_namespace']);
+                $this->psrLogNamespace = \is_string($result) && '' !== $result ? $result : $this->config['psr_log_namespace'];
+            } else {
+                $this->psrLogNamespace = $this->config['psr_log_namespace'];
+            }
+        }
+
+        // Ensure we always return a string
+        return $this->psrLogNamespace ?? $this->config['psr_log_namespace'];
+    }
+
+    /**
+     * Get PSR Log level constant from custom namespace.
+     */
+    private function getPsrLogLevel(string $level): string
+    {
+        $psrNamespace = $this->getPsrLogNamespace();
+
+        // For default namespace, use static constants for better performance
+        if ('Psr\Log' === $psrNamespace) {
+            return match ($level) {
+                'EMERGENCY' => LogLevel::EMERGENCY,
+                'ALERT' => LogLevel::ALERT,
+                'CRITICAL' => LogLevel::CRITICAL,
+                'ERROR' => LogLevel::ERROR,
+                'WARNING' => LogLevel::WARNING,
+                'NOTICE' => LogLevel::NOTICE,
+                'INFO' => LogLevel::INFO,
+                'DEBUG' => LogLevel::DEBUG,
+                default => LogLevel::DEBUG,
+            };
+        }
+
+        // For custom namespace, construct dynamically
+        $logLevelClass = $psrNamespace.'\LogLevel';
+        if (class_exists($logLevelClass) && \defined($logLevelClass.'::'.$level)) {
+            return \constant($logLevelClass.'::'.$level);
+        }
+
+        // Fallback to standard values if custom namespace doesn't work
+        return match ($level) {
+            'EMERGENCY' => 'emergency',
+            'ALERT' => 'alert',
+            'CRITICAL' => 'critical',
+            'ERROR' => 'error',
+            'WARNING' => 'warning',
+            'NOTICE' => 'notice',
+            'INFO' => 'info',
+            'DEBUG' => 'debug',
+            default => 'debug',
+        };
+    }
+
+    /**
+     * Get PSR Log level priority mapping with custom namespace support.
+     *
+     * @return array<string, int>
+     */
+    private function getPsrLogLevels(): array
+    {
+        if (null !== $this->psrLogLevels) {
+            return $this->psrLogLevels;
+        }
+
+        // Use standard level names as keys, priorities as values
+        // This works regardless of PSR Log namespace
+        $this->psrLogLevels = [
+            'debug' => 0,
+            'info' => 1,
+            'notice' => 2,
+            'warning' => 3,
+            'error' => 4,
+            'critical' => 5,
+            'alert' => 6,
+            'emergency' => 7,
+        ];
+
+        return $this->psrLogLevels;
     }
 
     /**
@@ -934,12 +1042,14 @@ class Logger implements LoggerInterface
         $config .= "# Global logger settings:\n";
         $config .= "LOGGER_DISABLED=false\n";
         $config .= \sprintf('LOGGER_RETENTION_DAYS=%d%s', $retentionDays, PHP_EOL);
-        $config .= "LOGGER_MIN_LEVEL=info\n\n";
+        $config .= "LOGGER_MIN_LEVEL=info\n";
+        $config .= "LOGGER_PSR_LOG_NAMESPACE=Psr\\Log\n\n";
 
         $config .= "# Plugin/Theme-specific settings (higher priority):\n";
         $config .= $this->buildConstantName('DISABLED')."=false\n";
         $config .= $this->buildConstantName('RETENTION_DAYS').\sprintf('=%d%s', $retentionDays, PHP_EOL);
-        $config .= $this->buildConstantName('MIN_LEVEL')."=warning\n\n";
+        $config .= $this->buildConstantName('MIN_LEVEL')."=warning\n";
+        $config .= $this->buildConstantName('PSR_LOG_NAMESPACE')."=MyPlugin\\Vendor\\Psr\\Log\n\n";
 
         $config .= "# WordPress Constants (wp-config.php):\n";
         $config .= "# Enable debug logging (uses error_log):\n";
@@ -954,8 +1064,9 @@ class Logger implements LoggerInterface
         $config .= 'Plugin/Theme: '.$this->config['component_name']."\n";
         $config .= 'Environment: '.Environment::getEnvironment()."\n";
         $config .= "Log retention: {$retentionDays} days\n";
+        $config .= 'Min log level: '.$this->config['min_level']."\n";
 
-        return $config.('Min log level: '.$this->config['min_level']."\n");
+        return $config.('PSR Log namespace: '.$this->getPsrLogNamespace()."\n");
     }
 
     /**
