@@ -166,7 +166,7 @@ jobs:
       # - Creates security alerts for repository maintainers
       - name: Run Snyk to check for vulnerabilities (PHP)
         continue-on-error: true
-        uses: snyk/actions/php@e2221410bff24446ba09102212d8bc75a567237d
+        uses: snyk/actions/php@9adf32b1121593767fc3c057af55b55db032dc04
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
