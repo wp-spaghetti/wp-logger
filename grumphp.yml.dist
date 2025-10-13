@@ -65,10 +65,10 @@ grumphp:
 
         # Psalm - Additional Static Analysis
         #FIXME - Temporarily disabled for PHP 8.4 compatibility
-        # psalm:
-        #     config: psalm.xml.dist
-        #     ignore_patterns: ['vendor']
-        #     threads: 4     
+        #psalm:
+        #    config: psalm.xml.dist
+        #    ignore_patterns: ['vendor']
+        #    threads: 4
 
         # Rector - Automated Refactoring
         rector: ~
