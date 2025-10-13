@@ -39,8 +39,8 @@ jobs:
         id: semantic
         with:
           # https://github.com/semantic-release/commit-analyzer/issues/65
+          # https://github.com/romap0/semantic-release-unsquash/issues/7
           extra_plugins: |
-            semantic-release-unsquash@latest
             @semantic-release/changelog@latest
             @semantic-release/git@latest
             conventional-changelog-conventionalcommits@latest

@@ -72,10 +72,11 @@
         "analysis": "@check --tasks=phpstan",
         "check": "@php -d max_execution_time=0 -d memory_limit=-1 -f ./vendor/bin/grumphp -- run",
         "ci": "@check --no-interaction",
-        "lint": "@check --tasks=phpcsfixer,phplint,phpstan,rector",
+        "lint": "@check --tasks=phpcsfixer,phplint,rector",
         "quality": "@check --tasks=phpmnd,phpparser",
+        "rector": "@php -d max_execution_time=0 -d memory_limit=-1 -f ./vendor/bin/rector -- process --ansi --clear-cache",
         "security": "@check --tasks=securitychecker_roave",
         "test": "@check --tasks=phpunit",
-        "test:coverage": "vendor/bin/phpunit --coverage-clover=coverage.xml"
+        "test:coverage": "@php -d max_execution_time=0 -d memory_limit=-1 ./vendor/bin/phpunit --coverage-clover=coverage.xml"
     }
 }
